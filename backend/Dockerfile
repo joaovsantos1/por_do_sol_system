@@ -1,13 +1,25 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS base
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+
 WORKDIR /src
 
-# Ferramenta de migrations do EF Core (usada no docker-compose para aplicar
-# as migrations automaticamente ao subir o container em desenvolvimento).
-RUN dotnet tool install --global dotnet-ef --version 8.*
-ENV PATH="${PATH}:/root/.dotnet/tools"
-
 COPY . .
+
 RUN dotnet restore src/Api/Api.csproj
 
+RUN dotnet publish src/Api/Api.csproj \
+    -c Release \
+    -o /app/publish \
+    --no-restore
+
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
+
+WORKDIR /app
+
+COPY --from=build /app/publish .
+
+ENV ASPNETCORE_URLS=http://0.0.0.0:8080
+
 EXPOSE 8080
-CMD ["dotnet", "run", "--project", "src/Api", "--urls", "http://0.0.0.0:8080"]
+
+ENTRYPOINT ["dotnet", "Api.dll"]

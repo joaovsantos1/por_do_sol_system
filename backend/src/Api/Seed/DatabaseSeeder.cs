@@ -17,9 +17,16 @@ public static class DatabaseSeeder
     {
         if (!db.Usuarios.Any())
         {
-            var adminLogin = config["Admin:Login"] ?? "admin";
-            var adminSenha = config["Admin:Password"] ?? throw new InvalidOperationException(
-                "Defina Admin:Password (variável de ambiente ADMIN_PASSWORD) para criar o usuário administrador inicial.");
+            var adminLogin = string.IsNullOrWhiteSpace(config["Admin:Login"])
+             ? "admin"
+             : config["Admin:Login"]!;
+            var adminSenha = config["Admin:Password"];
+
+            if (string.IsNullOrWhiteSpace(adminSenha))
+            {
+                throw new InvalidOperationException(
+                    "Defina Admin:Password (variável de ambiente ADMIN_PASSWORD) para criar o usuário administrador inicial.");
+            }
 
             db.Usuarios.Add(new Usuario
             {
@@ -43,21 +50,36 @@ public static class DatabaseSeeder
             db.Produtos.AddRange(
                 new Produto
                 {
-                    Codigo = "EX-0001", Nome = "Coca-Cola 350ml [EXEMPLO]",
-                    CategoriaId = bebidas.Id, PrecoVenda = 6.00m, PrecoCusto = 3.00m,
-                    EstoqueAtual = 50, EstoqueMinimo = 10, Unidade = "UN"
+                    Codigo = "EX-0001",
+                    Nome = "Coca-Cola 350ml [EXEMPLO]",
+                    CategoriaId = bebidas.Id,
+                    PrecoVenda = 6.00m,
+                    PrecoCusto = 3.00m,
+                    EstoqueAtual = 50,
+                    EstoqueMinimo = 10,
+                    Unidade = "UN"
                 },
                 new Produto
                 {
-                    Codigo = "EX-0002", Nome = "X-Burger [EXEMPLO]",
-                    CategoriaId = lanches.Id, PrecoVenda = 25.00m, PrecoCusto = 12.00m,
-                    EstoqueAtual = 30, EstoqueMinimo = 5, Unidade = "UN"
+                    Codigo = "EX-0002",
+                    Nome = "X-Burger [EXEMPLO]",
+                    CategoriaId = lanches.Id,
+                    PrecoVenda = 25.00m,
+                    PrecoCusto = 12.00m,
+                    EstoqueAtual = 30,
+                    EstoqueMinimo = 5,
+                    Unidade = "UN"
                 },
                 new Produto
                 {
-                    Codigo = "EX-0003", Nome = "Batata Frita [EXEMPLO]",
-                    CategoriaId = porcoes.Id, PrecoVenda = 15.00m, PrecoCusto = 6.00m,
-                    EstoqueAtual = 20, EstoqueMinimo = 5, Unidade = "UN"
+                    Codigo = "EX-0003",
+                    Nome = "Batata Frita [EXEMPLO]",
+                    CategoriaId = porcoes.Id,
+                    PrecoVenda = 15.00m,
+                    PrecoCusto = 6.00m,
+                    EstoqueAtual = 20,
+                    EstoqueMinimo = 5,
+                    Unidade = "UN"
                 }
             );
         }

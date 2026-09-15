@@ -113,10 +113,18 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>
     {
-        var origensPermitidas = (builder.Configuration["Cors:AllowedOrigins"] ?? "http://localhost:4200")
-        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        policy.SetIsOriginAllowed(origin =>
+        {
+            if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                return false;
+            return uri.Scheme == Uri.UriSchemeHttps &&
+                uri.Host.StartsWith("por-do-") &&
+                uri.Host.EndsWith(".vercel.app");
+        })
+        // var origensPermitidas = (builder.Configuration["Cors:AllowedOrigins"] ?? "http://localhost:4200")
+        // .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-        policy.WithOrigins(origensPermitidas)
+        // policy.WithOrigins(origensPermitidas)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();

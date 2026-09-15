@@ -1,0 +1,23 @@
+.env
+.env.local
+.env.*.local
+backend/src/Api/appsettings.Development.json
+backend/src/Api/appsettings.Local.json
+backend/src/Api/appsettings.Production.json
+
+# .NET
+backend/**/bin/
+backend/**/obj/
+*.user
+
+# Angular / Node
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+npm-debug.log*
+
+# Editor / SO
+.vs/
+.vscode/
+.idea/
+.DS_Store

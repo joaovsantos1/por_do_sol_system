@@ -1,0 +1,12 @@
+Coloque aqui o arquivo da logo oficial da loja, com o nome "logo.png".
+
+Ela será usada automaticamente:
+- Na tela de login (frontend/src/app/features/auth/login.component.ts)
+- No header/sidebar do sistema (frontend/src/app/shared/shell.component.ts)
+
+Depois de colocar o arquivo real aqui, gere também os ícones do PWA
+(72, 96, 128, 144, 192 e 512px) a partir dela e salve em
+frontend/src/assets/icons/ com os nomes já referenciados em
+frontend/src/manifest.webmanifest (icon-72.png, icon-96.png, etc.).
+Uma ferramenta como https://realfavicongenerator.net ou
+`npx pwa-asset-generator` resolve isso rapidamente a partir de uma imagem só.

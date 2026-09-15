@@ -1,0 +1,65 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pdv_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-pdv_db}
+      POSTGRES_USER: ${POSTGRES_USER:-pdv_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pdv_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pdv_user}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pdv_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ConnectionStrings__Default: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-pdv_db};Username=${POSTGRES_USER:-pdv_user};Password=${POSTGRES_PASSWORD:-changeme}"
+      Jwt__Secret: ${JWT_SECRET:-troque-esta-chave-em-producao-min-32-chars}
+      Jwt__Issuer: ${JWT_ISSUER:-PdvSistema}
+      Jwt__Audience: ${JWT_AUDIENCE:-PdvSistemaClientes}
+      Jwt__ExpirationMinutes: ${JWT_EXPIRATION_MINUTES:-60}
+      Admin__Login: ${ADMIN_LOGIN:-admin}
+      Admin__Password: ${ADMIN_PASSWORD:-changeme123}
+      Cors__AllowedOrigins: ${CORS_ALLOWED_ORIGINS:-http://localhost:4200}
+    ports:
+      - "5000:8080"
+    volumes:
+      - ./backend:/src
+    command: >
+      sh -c "dotnet run --project src/Api"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: pdv_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      API_URL: ${API_URL:-http://localhost:5000/api}
+    ports:
+      - "4200:4200"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+volumes:
+  pdv_pg_data:

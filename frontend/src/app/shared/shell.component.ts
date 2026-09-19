@@ -50,7 +50,9 @@ import { RealtimeService } from "../core/services/realtime.service";
             matTooltip="PDV"
             matTooltipPosition="right"
           >
-            <mat-icon matListItemIcon>point_of_sale</mat-icon>
+            <mat-icon matListItemIcon style="color: #fffffff;"
+              >point_of_sale</mat-icon
+            >
             <span matListItemTitle class="nav-text">PDV</span>
           </a>
           <a
@@ -60,11 +62,25 @@ import { RealtimeService } from "../core/services/realtime.service";
             matTooltip="Comandas Abertas"
             matTooltipPosition="right"
           >
-            <mat-icon matListItemIcon>receipt_long</mat-icon>
+            <mat-icon matListItemIcon style="color: #fffffff;"
+              >receipt_long</mat-icon
+            >
             <span matListItemTitle class="nav-text">Comandas Abertas</span>
           </a>
 
           @if (auth.temPerfil(["Administrador", "Gerente"])) {
+            <a
+              mat-list-item
+              routerLink="/historico-comandas"
+              routerLinkActive="active"
+              matTooltip="Histórico de Comandas"
+              matTooltipPosition="right"
+            >
+              <mat-icon matListItemIcon style="color: #fffffff;"
+                >history</mat-icon
+              >
+              <span matListItemTitle class="nav-text">Histórico</span>
+            </a>
             <a
               mat-list-item
               routerLink="/dashboard"
@@ -72,7 +88,9 @@ import { RealtimeService } from "../core/services/realtime.service";
               matTooltip="Dashboard"
               matTooltipPosition="right"
             >
-              <mat-icon matListItemIcon>dashboard</mat-icon>
+              <mat-icon matListItemIcon style="color: #fffffff;"
+                >dashboard</mat-icon
+              >
               <span matListItemTitle class="nav-text">Dashboard</span>
             </a>
             <a
@@ -82,7 +100,9 @@ import { RealtimeService } from "../core/services/realtime.service";
               matTooltip="Produtos"
               matTooltipPosition="right"
             >
-              <mat-icon matListItemIcon>inventory_2</mat-icon>
+              <mat-icon matListItemIcon style="color: #fffffff;"
+                >inventory_2</mat-icon
+              >
               <span matListItemTitle class="nav-text">Produtos</span>
             </a>
             <a
@@ -92,8 +112,20 @@ import { RealtimeService } from "../core/services/realtime.service";
               matTooltip="Estoque"
               matTooltipPosition="right"
             >
-              <mat-icon matListItemIcon>warehouse</mat-icon>
+              <mat-icon matListItemIcon style="color: #fffffff;"
+                >warehouse</mat-icon
+              >
               <span matListItemTitle class="nav-text">Estoque</span>
+            </a>
+            <a
+              mat-list-item
+              routerLink="/valorizacao-estoque"
+              routerLinkActive="active"
+              matTooltip="Valorização de Estoque"
+              matTooltipPosition="right"
+            >
+              <mat-icon matListItemIcon>payments</mat-icon>
+              <span matListItemTitle class="nav-text">Valorização</span>
             </a>
           }
           @if (auth.temPerfil(["Administrador"])) {
@@ -104,7 +136,9 @@ import { RealtimeService } from "../core/services/realtime.service";
               matTooltip="Usuários"
               matTooltipPosition="right"
             >
-              <mat-icon matListItemIcon>people</mat-icon>
+              <mat-icon matListItemIcon style="color: #fffffff;"
+                >people</mat-icon
+              >
               <span matListItemTitle class="nav-text">Usuários</span>
             </a>
           }
@@ -179,6 +213,9 @@ import { RealtimeService } from "../core/services/realtime.service";
       }
       mat-nav-list a.active {
         background: #f26b38;
+        color: #ffffff;
+      }
+      mat-nav-list a mat-icon {
         color: #ffffff;
       }
 

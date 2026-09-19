@@ -17,7 +17,7 @@ public class ComandaService
         _stock = stock;
     }
 
-    public async Task<Comanda> AbrirComandaAsync(Guid usuarioId, string? observacoes, CancellationToken ct = default)
+    public async Task<Comanda> AbrirComandaAsync(Guid usuarioId, string? observacoes, int? numeroMesa, string? nomeCliente, CancellationToken ct = default)
     {
         // Número sequencial simples baseado no maior número existente.
         // Em volume muito alto, trocar por uma sequence do PostgreSQL;
@@ -35,7 +35,9 @@ public class ComandaService
             Status = StatusComanda.Aberta,
             AbertaEm = DateTime.UtcNow,
             AbertaPorUsuarioId = usuarioId,
-            Observacoes = observacoes
+            Observacoes = observacoes,
+            NumeroMesa = numeroMesa,
+            NomeCliente = nomeCliente
         };
 
         _db.Comandas.Add(comanda);

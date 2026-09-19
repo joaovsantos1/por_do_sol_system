@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,18 +19,151 @@ public class ComandasController : ControllerBase
 {
     private readonly ComandaService _comandas;
     private readonly FechamentoService _fechamento;
+    private readonly Pdv.Application.Vendas.VendaService _vendaService;
     private readonly PdvDbContext _db;
     private readonly IHubContext<ComandasHub> _hub;
 
-    public ComandasController(ComandaService comandas, FechamentoService fechamento, PdvDbContext db, IHubContext<ComandasHub> hub)
+    public ComandasController(ComandaService comandas, FechamentoService fechamento,
+        Pdv.Application.Vendas.VendaService vendaService, PdvDbContext db, IHubContext<ComandasHub> hub)
     {
         _comandas = comandas;
         _fechamento = fechamento;
+        _vendaService = vendaService;
         _db = db;
         _hub = hub;
     }
 
     private Guid UsuarioId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub")!);
+
+    /// <summary>
+    /// Tenta interpretar uma data vinda da query string no formato yyyy-MM-dd
+    /// (é o formato que o input type="date" do navegador sempre envia).
+    /// Recebida como string (em vez de DateTime? direto no parâmetro da
+    /// action) de propósito: o model binder automático do ASP.NET Core usa
+    /// a cultura da thread, que pode variar entre ambientes (local vs.
+    /// Render) e, se a conversão falhar, o [ApiController] devolve um 400
+    /// automático em formato ProblemDetails — sem o corpo { erro: "..." }
+    /// que o frontend espera — antes mesmo do código do controller rodar.
+    /// Fazendo o parse manual aqui, garantimos uma mensagem de erro
+    /// previsível independente do ambiente.
+    /// </summary>
+    private static bool TentarConverterData(string? valor, out DateTime data)
+    {
+        if (DateTime.TryParseExact(
+            valor,
+            "yyyy-MM-dd",
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out var resultado))
+        {
+            var fusoSaoPaulo = TimeZoneInfo.FindSystemTimeZoneById(
+                OperatingSystem.IsWindows()
+                ? "E. South America Standard Time"
+                : "America/Sao_Paulo"
+            );
+            data = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(resultado, DateTimeKind.Unspecified), fusoSaoPaulo);
+            return true;
+        }
+        data = default;
+        return false;
+
+        // return DateTime.TryParseExact(valor, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out data);
+    }
+
+    /// <summary>
+    /// Histórico de comandas com filtro por status (Aberta/Fechada/Cancelada)
+    /// e período pela data de abertura, já incluindo os itens de cada
+    /// comanda (para a tela de histórico mostrar o que foi vendido, não só
+    /// o total). Usado pela tela de "Histórico de comandas" — a tela de
+    /// "Comandas abertas" continua usando o endpoint /abertas, mais
+    /// enxuto e mais rápido para o fluxo do caixa.
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> Listar(
+        [FromQuery] string? status, [FromQuery] string? inicio, [FromQuery] string? fim, CancellationToken ct)
+    {
+        var query = _db.Comandas.AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            if (!Enum.TryParse<StatusComanda>(status, true, out var statusEnum))
+                return BadRequest(new { erro = $"Status inválido: '{status}'." });
+            query = query.Where(c => c.Status == statusEnum);
+        }
+
+        if (!string.IsNullOrWhiteSpace(inicio))
+        {
+            if (!TentarConverterData(inicio, out var dataInicio))
+                return BadRequest(new { erro = $"Data de início inválida: '{inicio}'. Use o formato AAAA-MM-DD." });
+            query = query.Where(c => c.AbertaEm >= dataInicio);
+        }
+
+        if (!string.IsNullOrWhiteSpace(fim))
+        {
+            if (!TentarConverterData(fim, out var dataFim))
+                return BadRequest(new { erro = $"Data de fim inválida: '{fim}'. Use o formato AAAA-MM-DD." });
+            query = query.Where(c => c.AbertaEm < dataFim.AddDays(1));
+        }
+
+        var comandas = await query
+            .Include(c => c.AbertaPorUsuario)
+            .Include(c => c.FechadaPorUsuario)
+            .Include(c => c.Itens).ThenInclude(i => i.Produto)
+            .OrderByDescending(c => c.AbertaEm)
+            .Select(c => new
+            {
+                c.Id,
+                c.Numero,
+                c.CodigoIdentificador,
+                c.NumeroMesa,
+                c.NomeCliente,
+                Status = c.Status.ToString(),
+                c.AbertaEm,
+                AbertaPor = c.AbertaPorUsuario!.Nome,
+                c.FechadaEm,
+                FechadaPor = c.FechadaPorUsuario != null ? c.FechadaPorUsuario.Nome : null,
+                c.ValorTotal,
+                Itens = c.Itens.Where(i => !i.Removido).Select(i => new
+                {
+                    i.Id,
+                    ProdutoNome = i.Produto!.Nome,
+                    i.Quantidade,
+                    i.PrecoUnitario,
+                    i.Subtotal
+                })
+            })
+            .Take(300)
+            .ToListAsync(ct);
+
+        return Ok(comandas);
+    }
+
+    /// <summary>
+    /// Estorna uma comanda já FECHADA: localiza a Venda gerada no fechamento
+    /// e cancela por lá (VendaService.CancelarVendaAsync), que devolve os
+    /// produtos ao estoque e registra o motivo — nunca apaga nada, só marca
+    /// como cancelada/estornada (mesma regra de "nunca excluir venda" do
+    /// restante do sistema).
+    /// </summary>
+    [HttpPost("{comandaId:guid}/estornar")]
+    [Authorize(Roles = "Administrador,Gerente")]
+    public async Task<IActionResult> Estornar(Guid comandaId, CancelarVendaRequest request, CancellationToken ct)
+    {
+        var venda = await _db.Vendas.SingleOrDefaultAsync(v => v.ComandaId == comandaId && !v.Cancelada, ct);
+        if (venda is null)
+            return NotFound(new { erro = "Nenhuma venda ativa encontrada para essa comanda (já pode estar estornada, ou a comanda nunca foi fechada)." });
+
+        try
+        {
+            await _vendaService.CancelarVendaAsync(venda.Id, UsuarioId, request.Motivo, ct);
+            await _hub.Clients.All.SendAsync("ComandaAtualizada", comandaId, ct);
+            return NoContent();
+        }
+        catch (Pdv.Application.Vendas.VendaInvalidaException ex)
+        {
+            return BadRequest(new { erro = ex.Message });
+        }
+    }
 
     [HttpGet("abertas")]
     public async Task<IActionResult> ListarAbertas(CancellationToken ct)
@@ -44,6 +178,8 @@ public class ComandasController : ControllerBase
                 c.Id,
                 c.Numero,
                 c.CodigoIdentificador,
+                c.NumeroMesa,
+                c.NomeCliente,
                 c.AbertaEm,
                 AbertaPor = c.AbertaPorUsuario!.Nome,
                 Itens = c.Itens.Count,
@@ -78,6 +214,8 @@ public class ComandasController : ControllerBase
                 c.Id,
                 c.Numero,
                 c.CodigoIdentificador,
+                c.NumeroMesa,
+                c.NomeCliente,
                 Status = c.Status.ToString(),
                 c.AbertaEm,
                 AbertaPor = c.AbertaPorUsuario!.Nome,
@@ -131,7 +269,7 @@ public class ComandasController : ControllerBase
     [HttpPost("abrir")]
     public async Task<IActionResult> Abrir(AbrirComandaRequest request, CancellationToken ct)
     {
-        var comanda = await _comandas.AbrirComandaAsync(UsuarioId, request.Observacoes, ct);
+        var comanda = await _comandas.AbrirComandaAsync(UsuarioId, request.Observacoes, request.NumeroMesa, request.NomeCliente, ct);
         await _hub.Clients.All.SendAsync("ComandaAberta", comanda.Id, ct);
         return CreatedAtAction(nameof(Buscar), new { identificador = comanda.Numero.ToString() },
             new { comanda.Id, comanda.Numero, comanda.CodigoIdentificador });

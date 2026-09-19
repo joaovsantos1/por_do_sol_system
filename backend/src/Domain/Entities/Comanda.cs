@@ -10,6 +10,10 @@ public class Comanda : EntidadeBase
     /// <summary>Código identificador único usado no QR Code / código de barras (ex.: "COMANDA-000152").</summary>
     public string CodigoIdentificador { get; set; } = default!;
 
+    public int? NumeroMesa { get; set; }
+
+    public string? NomeCliente { get; set; }
+
     public StatusComanda Status { get; set; } = StatusComanda.Aberta;
 
     public DateTime AbertaEm { get; set; } = DateTime.UtcNow;

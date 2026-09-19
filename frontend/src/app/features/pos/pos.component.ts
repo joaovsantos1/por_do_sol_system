@@ -21,6 +21,10 @@ import { ComandasService, Comanda } from "../../core/services/comandas.service";
 import { ProdutosService, Produto } from "../../core/services/produtos.service";
 import { RealtimeService } from "../../core/services/realtime.service";
 import { CloseCommandDialogComponent } from "../commands/close-command-dialog.component";
+import {
+  NewCommandDialogComponent,
+  NewCommandDialogResult,
+} from "./new-command-dialog.component";
 import { ScannerButtonComponent } from "../../shared/scanner-button.component";
 
 @Component({
@@ -119,6 +123,19 @@ import { ScannerButtonComponent } from "../../shared/scanner-button.component";
               </button>
             </div>
             <p class="operador">Aberta por {{ comandaAtual.abertaPor }}</p>
+            @if (comandaAtual.numeroMesa || comandaAtual.nomeCliente) {
+              <p class="identificacao">
+                @if (comandaAtual.numeroMesa) {
+                  <span>Mesa {{ comandaAtual.numeroMesa }}</span>
+                }
+                @if (comandaAtual.numeroMesa && comandaAtual.nomeCliente) {
+                  <span> · </span>
+                }
+                @if (comandaAtual.nomeCliente) {
+                  <span>{{ comandaAtual.nomeCliente }}</span>
+                }
+              </p>
+            }
 
             <div class="itens-lista">
               @for (item of comandaAtual.itens; track item.id) {
@@ -303,6 +320,12 @@ import { ScannerButtonComponent } from "../../shared/scanner-button.component";
         text-overflow: ellipsis;
         white-space: nowrap;
       }
+      .identificacao {
+        color: var(--pdv-primary);
+        font-weight: 600;
+        font-size: 0.85rem;
+        margin: -8px 0 12px;
+      }
       .itens-lista {
         flex: 1;
         overflow-y: auto;
@@ -435,11 +458,22 @@ export class PosComponent implements OnInit, OnDestroy {
   }
 
   abrirNovaComanda(): void {
-    this.comandasService.abrir().subscribe((res) => {
-      this.buscarComanda(res.numero.toString());
+    const ref = this.dialog.open(NewCommandDialogComponent, { width: "360px" });
+    ref.afterClosed().subscribe((resultado?: NewCommandDialogResult) => {
+      if (!resultado) return; // usuário cancelou o dialog
+
+      this.comandasService.abrir(resultado).subscribe((res) => {
+        this.buscarComanda(res.numero.toString());
+      });
     });
   }
 
+  /// Só tira a comanda da tela do PDV — NÃO fecha nem cancela nada no
+  /// backend. Ela continua "Aberta" normalmente e pode ser retomada depois
+  /// digitando/escaneando o número de novo, ou pela tela de Comandas
+  /// Abertas. Serve para o caso de um cliente que vai demorar (ex.: só
+  /// paga quando for embora) e o caixa precisa liberar a tela para atender
+  /// outra comanda enquanto isso.
   voltarInicio(): void {
     this.comandaAtual = null;
     this.codigoDigitado = "";
@@ -450,10 +484,15 @@ export class PosComponent implements OnInit, OnDestroy {
     this.comandasService
       .buscar(this.comandaAtual.numero.toString())
       .subscribe((c) => {
+        // Este método também é chamado pelo evento "ComandaAtualizada" do
+        // SignalR, que pode chegar DEPOIS que fecharComanda() já zerou
+        // comandaAtual (corrida entre o aviso em tempo real e a resposta do
+        // próprio fechamento). Sem essa checagem, a busca reatribuía a
+        // comanda já fechada de volta em comandaAtual, fazendo a tela do PDV
+        // parecer que ela continuava aberta. Se o status não for mais
+        // "Aberta", tratamos como se a comanda tivesse sumido da tela.
         this.comandaAtual = c.status === "Aberta" ? c : null;
       });
-    // if (!this.comandaAtual) return;
-    // this.comandasService.buscar(this.comandaAtual.numero.toString()).subscribe(c => this.comandaAtual = c);
   }
 
   adicionarProduto(produto: Produto): void {

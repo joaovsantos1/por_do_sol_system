@@ -58,6 +58,8 @@ public class PdvDbContext : DbContext
         {
             e.HasIndex(c => c.Numero).IsUnique();
             e.HasIndex(c => c.CodigoIdentificador).IsUnique();
+            e.HasIndex(c => c.NumeroMesa);
+            e.Property(c => c.NomeCliente).HasMaxLength(120);
             e.Property(c => c.ValorTotal).HasColumnType("numeric(12,2)");
             e.HasOne(c => c.AbertaPorUsuario).WithMany()
                 .HasForeignKey(c => c.AbertaPorUsuarioId).OnDelete(DeleteBehavior.Restrict);

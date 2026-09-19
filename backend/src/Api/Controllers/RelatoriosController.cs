@@ -75,6 +75,68 @@ public class RelatoriosController : ControllerBase
         return Ok(new { atual, baixo });
     }
 
+    [HttpGet("estoque/valorizacao")]
+    public async Task<IActionResult> ValorizacaoEstoque(CancellationToken ct)
+    {
+        var produtos = await _db.Produtos.AsNoTracking()
+            .Where(p => p.Ativo)
+            .Include(p => p.Categoria)
+            .OrderByDescending(p => p.EstoqueAtual * p.PrecoVenda)
+            .Select(p => new
+            {
+                p.Id,
+                p.Nome,
+                Categoria = p.Categoria!.Nome,
+                p.EstoqueAtual,
+                p.PrecoCusto,
+                p.PrecoVenda
+            })
+            .ToListAsync(ct);
+
+        var itens = produtos.Select(p =>
+        {
+            var valorCusto = p.EstoqueAtual * p.PrecoCusto;
+            var valorVenda = p.EstoqueAtual * p.PrecoVenda;
+            // Markup sobre o custo: quanto % o preço de venda está acima do
+            // custo. Null quando custo é zero (evita divisão por zero — não
+            // faz sentido calcular margem de um produto sem custo cadastrado).
+            decimal? lucroPercentual = p.PrecoCusto > 0
+                ? Math.Round((p.PrecoVenda - p.PrecoCusto) / p.PrecoCusto * 100, 1)
+                : null;
+
+            return new
+            {
+                p.Id,
+                p.Nome,
+                p.Categoria,
+                p.EstoqueAtual,
+                p.PrecoCusto,
+                p.PrecoVenda,
+                ValorCusto = valorCusto,
+                ValorVenda = valorVenda,
+                LucroPercentual = lucroPercentual
+            };
+        }).ToList();
+
+        var totalCusto = itens.Sum(i => i.ValorCusto);
+        var totalVenda = itens.Sum(i => i.ValorVenda);
+        var lucroPercentualGeral = totalCusto > 0
+            ? Math.Round((totalVenda - totalCusto) / totalCusto * 100, 1)
+            : (decimal?)null;
+
+        return Ok(new
+        {
+            itens,
+            totais = new
+            {
+                totalCusto,
+                totalVenda,
+                lucroBrutoEstimado = totalVenda - totalCusto,
+                lucroPercentualGeral
+            }
+        });
+    }
+
     [HttpGet("estoque/movimentacoes")]
     public async Task<IActionResult> Movimentacoes(
         [FromQuery] DateTime inicio, [FromQuery] DateTime fim,
@@ -89,8 +151,14 @@ public class RelatoriosController : ControllerBase
             .OrderByDescending(m => m.CreatedAt)
             .Select(m => new
             {
-                m.Id, Produto = m.Produto!.Nome, m.Tipo, m.Quantidade,
-                m.EstoqueResultante, Usuario = m.Usuario!.Nome, m.CreatedAt, m.Observacao
+                m.Id,
+                Produto = m.Produto!.Nome,
+                m.Tipo,
+                m.Quantidade,
+                m.EstoqueResultante,
+                Usuario = m.Usuario!.Nome,
+                m.CreatedAt,
+                m.Observacao
             })
             .Take(500)
             .ToListAsync(ct);

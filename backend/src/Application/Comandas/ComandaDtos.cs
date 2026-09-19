@@ -13,7 +13,7 @@ public record ComandaResponse(
     DateTime AbertaEm, string AbertaPorNome, decimal ValorTotal,
     string? Observacoes, List<ComandaItemResponse> Itens);
 
-public record AbrirComandaRequest(string? Observacoes);
+public record AbrirComandaRequest(string? Observacoes, int? NumeroMesa, string? NomeCliente);
 
 public record FecharComandaRequest(List<PagamentoRequest> Pagamentos);
 

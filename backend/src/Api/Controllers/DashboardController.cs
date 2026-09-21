@@ -14,34 +14,87 @@ public record PeriodoQuery(DateTime? Inicio, DateTime? Fim);
 public class DashboardController : ControllerBase
 {
     private readonly PdvDbContext _db;
+
     public DashboardController(PdvDbContext db) => _db = db;
 
+    private static TimeZoneInfo ObterFusoSaoPaulo()
+    {
+        try
+        {
+            // Windows
+            return TimeZoneInfo.FindSystemTimeZoneById(
+                "E. South America Standard Time");
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            // Linux / Render
+            return TimeZoneInfo.FindSystemTimeZoneById(
+                "America/Sao_Paulo");
+        }
+    }
+
     /// <summary>
-    /// Resumo do dia atual (fuso UTC): total vendido, número de vendas,
-    /// ticket médio, comandas abertas/fechadas e vendas por forma de pagamento.
+    /// Resumo do dia atual no fuso de São Paulo.
+    /// Os limites do dia são convertidos para UTC antes da consulta ao banco.
     /// </summary>
     [HttpGet("hoje")]
     public async Task<IActionResult> Hoje(CancellationToken ct)
     {
-        var inicio = DateTime.UtcNow.Date;
-        var fim = inicio.AddDays(1);
-        return Ok(await ResumoPeriodoAsync(inicio, fim, ct));
+        var fusoSaoPaulo = ObterFusoSaoPaulo();
+
+        var agoraSaoPaulo = TimeZoneInfo.ConvertTimeFromUtc(
+            DateTime.UtcNow,
+            fusoSaoPaulo
+        );
+
+        var inicioLocal = agoraSaoPaulo.Date;
+        var fimLocal = inicioLocal.AddDays(1);
+
+        var inicioUtc = TimeZoneInfo.ConvertTimeToUtc(
+            DateTime.SpecifyKind(
+                inicioLocal,
+                DateTimeKind.Unspecified
+            ),
+            fusoSaoPaulo
+        );
+
+        var fimUtc = TimeZoneInfo.ConvertTimeToUtc(
+            DateTime.SpecifyKind(
+                fimLocal,
+                DateTimeKind.Unspecified
+            ),
+            fusoSaoPaulo
+        );
+
+        return Ok(await ResumoPeriodoAsync(
+            inicioUtc,
+            fimUtc,
+            ct
+        ));
     }
 
     [HttpGet("periodo")]
     public async Task<IActionResult> Periodo(
-    [FromQuery] DateTime inicio,
-    [FromQuery] DateTime fim,
-    CancellationToken ct)
+        [FromQuery] DateTime inicio,
+        [FromQuery] DateTime fim,
+        CancellationToken ct)
     {
-        var inicioUtc = DateTime.SpecifyKind(
-            inicio.Date,
-            DateTimeKind.Utc
+        var fusoSaoPaulo = ObterFusoSaoPaulo();
+
+        var inicioUtc = TimeZoneInfo.ConvertTimeToUtc(
+            DateTime.SpecifyKind(
+                inicio.Date,
+                DateTimeKind.Unspecified
+            ),
+            fusoSaoPaulo
         );
 
-        var fimExclusivoUtc = DateTime.SpecifyKind(
-            fim.Date.AddDays(1),
-            DateTimeKind.Utc
+        var fimExclusivoUtc = TimeZoneInfo.ConvertTimeToUtc(
+            DateTime.SpecifyKind(
+                fim.Date.AddDays(1),
+                DateTimeKind.Unspecified
+            ),
+            fusoSaoPaulo
         );
 
         return Ok(await ResumoPeriodoAsync(
@@ -51,38 +104,117 @@ public class DashboardController : ControllerBase
         ));
     }
 
-    private async Task<object> ResumoPeriodoAsync(DateTime inicio, DateTime fimExclusivo, CancellationToken ct)
+    private async Task<object> ResumoPeriodoAsync(
+        DateTime inicio,
+        DateTime fimExclusivo,
+        CancellationToken ct)
     {
-        var vendas = _db.Vendas.AsNoTracking()
-            .Where(v => !v.Cancelada && v.DataHora >= inicio && v.DataHora < fimExclusivo);
+        var fusoSaoPaulo = ObterFusoSaoPaulo();
 
-        var totalVendido = await vendas.SumAsync(v => (decimal?)v.Total, ct) ?? 0m;
-        var numeroVendas = await vendas.CountAsync(ct);
-        var ticketMedio = numeroVendas > 0 ? totalVendido / numeroVendas : 0m;
+        var vendas = _db.Vendas
+            .AsNoTracking()
+            .Where(v =>
+                !v.Cancelada &&
+                v.DataHora >= inicio &&
+                v.DataHora < fimExclusivo);
 
-        var comandasAbertas = await _db.Comandas.CountAsync(c => c.Status == StatusComanda.Aberta, ct);
-        var comandasFechadas = await _db.Comandas.CountAsync(
-            c => c.Status == StatusComanda.Fechada && c.FechadaEm >= inicio && c.FechadaEm < fimExclusivo, ct);
+        var totalVendido =
+            await vendas.SumAsync(
+                v => (decimal?)v.Total,
+                ct
+            ) ?? 0m;
 
-        var porFormaPagamento = await _db.Pagamentos.AsNoTracking()
-            .Where(p => p.DataHora >= inicio && p.DataHora < fimExclusivo)
-            .GroupBy(p => p.Forma)
-            .Select(g => new { Forma = g.Key.ToString(), Total = g.Sum(p => p.Valor) })
-            .ToListAsync(ct);
+        var numeroVendas =
+            await vendas.CountAsync(ct);
 
-        var vendasPorDia = await vendas
-            .GroupBy(v => v.DataHora.Date)
-            .Select(g => new { Dia = g.Key, Total = g.Sum(v => v.Total) })
-            .OrderBy(g => g.Dia)
-            .ToListAsync(ct);
+        var ticketMedio =
+            numeroVendas > 0
+                ? totalVendido / numeroVendas
+                : 0m;
 
-        var produtosMaisVendidos = await _db.VendaItens.AsNoTracking()
-            .Where(i => i.Venda!.DataHora >= inicio && i.Venda!.DataHora < fimExclusivo && !i.Venda!.Cancelada)
-            .GroupBy(i => i.ProdutoNomeSnapshot)
-            .Select(g => new { Produto = g.Key, Quantidade = g.Sum(i => i.Quantidade) })
-            .OrderByDescending(g => g.Quantidade)
-            .Take(10)
-            .ToListAsync(ct);
+        var comandasAbertas =
+            await _db.Comandas.CountAsync(
+                c => c.Status == StatusComanda.Aberta,
+                ct
+            );
+
+        var comandasFechadas =
+            await _db.Comandas.CountAsync(
+                c =>
+                    c.Status == StatusComanda.Fechada &&
+                    c.FechadaEm >= inicio &&
+                    c.FechadaEm < fimExclusivo,
+                ct
+            );
+
+        var porFormaPagamento =
+            await _db.Pagamentos
+                .AsNoTracking()
+                .Where(p =>
+                    p.DataHora >= inicio &&
+                    p.DataHora < fimExclusivo &&
+                    p.VendaId != null &&
+                    !p.Venda!.Cancelada)
+                .GroupBy(p => p.Forma)
+                .Select(g => new
+                {
+                    Forma = g.Key.ToString(),
+                    Total = g.Sum(p => p.Valor)
+                })
+                .ToListAsync(ct);
+
+        // Busca somente os dados necessários para o gráfico.
+        // A conversão para São Paulo é feita antes do agrupamento,
+        // pois DataHora está armazenado em UTC.
+        var vendasParaGrafico =
+            await vendas
+                .Select(v => new
+                {
+                    v.DataHora,
+                    v.Total
+                })
+                .ToListAsync(ct);
+
+        var vendasPorDia =
+            vendasParaGrafico
+                .GroupBy(v =>
+                    TimeZoneInfo.ConvertTimeFromUtc(
+                        DateTime.SpecifyKind(
+                            v.DataHora,
+                            DateTimeKind.Utc
+                        ),
+                        fusoSaoPaulo
+                    ).Date
+                )
+                .Select(g => new
+                {
+                    Dia = g.Key,
+                    Total = g.Sum(v => v.Total)
+                })
+                .OrderBy(g => g.Dia)
+                .Select(g => new
+                {
+                    Dia = g.Dia.ToString("dd/MM"),
+                    g.Total
+                })
+                .ToList();
+
+        var produtosMaisVendidos =
+            await _db.VendaItens
+                .AsNoTracking()
+                .Where(i =>
+                    i.Venda!.DataHora >= inicio &&
+                    i.Venda!.DataHora < fimExclusivo &&
+                    !i.Venda!.Cancelada)
+                .GroupBy(i => i.ProdutoNomeSnapshot)
+                .Select(g => new
+                {
+                    Produto = g.Key,
+                    Quantidade = g.Sum(i => i.Quantidade)
+                })
+                .OrderByDescending(g => g.Quantidade)
+                .Take(10)
+                .ToListAsync(ct);
 
         return new
         {

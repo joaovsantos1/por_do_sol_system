@@ -415,7 +415,11 @@ export class DashboardComponent implements OnInit {
   }
 
   private formatarData(data: Date): string {
-    return data.toISOString().slice(0, 10);
+    const ano = data.getFullYear();
+    const mes = String(data.getMonth() + 1).padStart(2, "0");
+    const dia = String(data.getDate()).padStart(2, "0");
+
+    return `${ano}-${mes}-${dia}`;
   }
 
   carregarMetas(): void {

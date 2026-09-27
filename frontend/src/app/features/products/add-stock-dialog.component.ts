@@ -16,12 +16,19 @@ export interface AddStockDialogData {
   produtoId: string;
   produtoNome: string;
   estoqueAtual: number;
+  precoCustoAtual: number;
 }
 
-/// Modal simples para dar ENTRADA de estoque em um produto já existente
-/// (ex.: comprou mais Coca-Cola). Chama POST /api/estoque/entrada, que soma
-/// a quantidade informada ao estoque atual e gera a movimentação — nunca
+/// Modal para dar ENTRADA de estoque em um produto já existente (ex.:
+/// comprou mais Coca-Cola). Chama POST /api/estoque/entrada, que soma a
+/// quantidade informada ao estoque atual e gera a movimentação — nunca
 /// substitui o valor, sempre soma (estoqueAtual + quantidadeInformada).
+///
+/// O campo "novo preço de custo" é opcional: como o custo de compra pode
+/// mudar de uma vez pra outra, deixamos pré-preenchido com o custo atual,
+/// mas o operador pode ajustar se pagou diferente dessa vez — isso vira
+/// automaticamente o histórico de custo do produto (ver
+/// cost-history-dialog.component.ts).
 @Component({
   selector: "app-add-stock-dialog",
   standalone: true,
@@ -49,6 +56,17 @@ export interface AddStockDialogData {
             min="1"
             formControlName="quantidade"
             autofocus
+          />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Preço de custo pago nessa compra (por unidade)</mat-label>
+          <input
+            matInput
+            type="number"
+            min="0"
+            step="0.01"
+            formControlName="novoPrecoCusto"
           />
         </mat-form-field>
 
@@ -118,18 +136,23 @@ export class AddStockDialogComponent {
   ) {
     this.form = this.fb.group({
       quantidade: [0, [Validators.required, Validators.min(1)]],
+      novoPrecoCusto: [
+        this.data.precoCustoAtual,
+        [Validators.required, Validators.min(0)],
+      ],
       observacao: [""],
     });
   }
 
   salvar(): void {
     if (this.form.invalid) return;
-    const { quantidade, observacao } = this.form.getRawValue();
+    const { quantidade, novoPrecoCusto, observacao } = this.form.getRawValue();
 
     this.http
       .post(`${environment.apiUrl}/estoque/entrada`, {
         produtoId: this.data.produtoId,
         quantidade,
+        novoPrecoCusto,
         observacao: observacao || undefined,
       })
       .subscribe(() => this.dialogRef.close(true));

@@ -11,10 +11,11 @@ import { MatIconModule } from "@angular/material/icon";
 import { MatDialog, MatDialogModule } from "@angular/material/dialog";
 import { MatSlideToggleModule } from "@angular/material/slide-toggle";
 import { environment } from "../../../environments/environment";
-import { AddStockDialogComponent } from "./add-stock-dialog.component";
 
 import { ProdutosService, Produto } from "../../core/services/produtos.service";
 import { ProductFormDialogComponent } from "./product-form-dialog.component";
+import { AddStockDialogComponent } from "./add-stock-dialog.component";
+import { CostHistoryDialogComponent } from "./cost-history-dialog.component";
 
 @Component({
   selector: "app-products",
@@ -77,9 +78,16 @@ import { ProductFormDialogComponent } from "./product-form-dialog.component";
           <button
             mat-icon-button
             (click)="adicionarEstoque(p)"
-            title="Adicionar estoque"
+            title="Adicionar estoque (comprou mais)"
           >
             <mat-icon>add_box</mat-icon>
+          </button>
+          <button
+            mat-icon-button
+            (click)="verHistoricoCusto(p)"
+            title="Histórico de custo"
+          >
+            <mat-icon>trending_up</mat-icon>
           </button>
           <button mat-icon-button (click)="editar(p)" title="Editar">
             <mat-icon>edit</mat-icon>
@@ -166,10 +174,22 @@ export class ProductsComponent implements OnInit {
         produtoId: produto.id,
         produtoNome: produto.nome,
         estoqueAtual: produto.estoqueAtual,
+        precoCustoAtual: produto.precoCusto,
       },
     });
     ref.afterClosed().subscribe((confirmado) => {
       if (confirmado) this.buscar();
+    });
+  }
+
+  verHistoricoCusto(produto: Produto): void {
+    this.dialog.open(CostHistoryDialogComponent, {
+      width: "460px",
+      data: {
+        produtoId: produto.id,
+        produtoNome: produto.nome,
+        precoCustoAtual: produto.precoCusto,
+      },
     });
   }
 }

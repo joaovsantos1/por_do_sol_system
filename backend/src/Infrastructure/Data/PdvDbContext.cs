@@ -1,4 +1,6 @@
+using System.Dynamic;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Internal;
 using Pdv.Domain.Entities;
 
 namespace Pdv.Infrastructure.Data;
@@ -18,6 +20,9 @@ public class PdvDbContext : DbContext
     public DbSet<Pagamento> Pagamentos => Set<Pagamento>();
     public DbSet<Meta> Metas => Set<Meta>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<ConfiguracaoTaxas> ConfiguracoesTaxas => Set<ConfiguracaoTaxas>();
+    public DbSet<Combo> Combos => Set<Combo>();
+    public DbSet<ComboItem> ComboItens => Set<ComboItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -48,6 +53,7 @@ public class PdvDbContext : DbContext
         modelBuilder.Entity<MovimentoEstoque>(e =>
         {
             e.HasIndex(m => new { m.ProdutoId, m.CreatedAt });
+            e.Property(m => m.PrecoCustoRegistrado).HasColumnType("numeric(12,2)");
             e.HasOne(m => m.Produto).WithMany().HasForeignKey(m => m.ProdutoId)
                 .OnDelete(DeleteBehavior.Restrict);
             e.HasOne(m => m.Usuario).WithMany().HasForeignKey(m => m.UsuarioId)
@@ -71,10 +77,24 @@ public class PdvDbContext : DbContext
         {
             e.Property(i => i.PrecoUnitario).HasColumnType("numeric(12,2)");
             e.Property(i => i.Subtotal).HasColumnType("numeric(12,2)");
+            e.HasIndex(i => i.GrupoComboId);
             e.HasOne(i => i.Comanda).WithMany(c => c.Itens)
                 .HasForeignKey(i => i.ComandaId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(i => i.Produto).WithMany()
                 .HasForeignKey(i => i.ProdutoId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Combo>(e =>
+        {
+            e.Property(c => c.PrecoVenda).HasColumnType("numeric(12,2)");
+        });
+
+        modelBuilder.Entity<ComboItem>(e =>
+        {
+            e.HasOne(ci => ci.Combo).WithMany(c => c.Itens)
+                .HasForeignKey(ci => ci.ComboId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(ci => ci.Produto).WithMany()
+                .HasForeignKey(ci => ci.ProdutoId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Venda>(e =>
@@ -96,6 +116,7 @@ public class PdvDbContext : DbContext
         modelBuilder.Entity<Pagamento>(e =>
         {
             e.Property(p => p.Valor).HasColumnType("numeric(12,2)");
+            e.Property(p => p.ValorLiquido).HasColumnType("numeric(12,2)");
             e.HasOne(p => p.Comanda).WithMany(c => c.Pagamentos)
                 .HasForeignKey(p => p.ComandaId).OnDelete(DeleteBehavior.Restrict);
         });
@@ -103,6 +124,12 @@ public class PdvDbContext : DbContext
         modelBuilder.Entity<Meta>(e =>
         {
             e.Property(m => m.ValorAlvo).HasColumnType("numeric(12,2)");
+        });
+
+        modelBuilder.Entity<ConfiguracaoTaxas>(e =>
+        {
+            e.Property(c => c.TaxaCartaoCreditoPercentual).HasColumnType("numeric(5,2)");
+            e.Property(c => c.TaxaCartaoDebitoPercentual).HasColumnType("numeric(5,2)");
         });
     }
 }

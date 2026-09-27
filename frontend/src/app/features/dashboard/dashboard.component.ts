@@ -81,10 +81,19 @@ type PeriodoPreset = "hoje" | "7dias" | "15dias" | "mes" | "personalizado";
             </mat-form-field>
           </div>
         }
+        <button mat-stroked-button class="btn-excel" (click)="exportarExcel()">
+          <mat-icon>download</mat-icon> Exportar Excel
+        </button>
       </div>
     </div>
 
     <div class="cards">
+      <mat-card class="card destaque">
+        <span class="label">Valor líquido recebido (após taxas)</span>
+        <span class="valor"
+          >R$ {{ resumo?.valorLiquidoTotal ?? 0 | number: "1.2-2" }}</span
+        >
+      </mat-card>
       <mat-card class="card">
         <span class="label">Total vendido no período</span>
         <span class="valor"
@@ -297,6 +306,14 @@ type PeriodoPreset = "hoje" | "7dias" | "15dias" | "mes" | "personalizado";
       .vazio {
         color: #999;
       }
+      .btn-excel {
+        color: #2e7d32;
+        border-color: #2e7d32;
+
+        &:hover {
+          background-color: rgba(46, 125, 50, 0.08);
+        }
+      }
     `,
   ],
 })
@@ -420,6 +437,18 @@ export class DashboardComponent implements OnInit {
     const dia = String(data.getDate()).padStart(2, "0");
 
     return `${ano}-${mes}-${dia}`;
+  }
+
+  exportarExcel(): void {
+    const { inicio, fim } = this.calcularIntervalo();
+    this.dashboardService.exportarExcel(inicio, fim).subscribe((blob) => {
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `relatorio-financeiro-${inicio}-a-${fim}.xlsx`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+    });
   }
 
   carregarMetas(): void {

@@ -34,7 +34,10 @@ public class CategoriasController : ControllerBase
     }
 }
 
-public record EntradaEstoqueRequest(Guid ProdutoId, int Quantidade, string? Observacao);
+/// <summary>NovoPrecoCusto é opcional — quando informado, atualiza o
+/// Produto.PrecoCusto e fica registrado no histórico de custo (ver
+/// StockService.DevolverEstoqueAsync).</summary>
+public record EntradaEstoqueRequest(Guid ProdutoId, int Quantidade, string? Observacao, decimal? NovoPrecoCusto);
 public record AjusteEstoqueRequest(Guid ProdutoId, int NovaQuantidade, string Motivo);
 
 [ApiController]
@@ -61,8 +64,48 @@ public class EstoqueController : ControllerBase
             .Where(m => m.ProdutoId == produtoId)
             .OrderByDescending(m => m.CreatedAt)
             .Take(200)
-            .Select(m => new { m.Id, m.Tipo, m.Quantidade, m.EstoqueResultante, m.CreatedAt, m.Observacao })
+            .Select(m => new { m.Id, m.Tipo, m.Quantidade, m.EstoqueResultante, m.CreatedAt, m.Observacao, m.PrecoCustoRegistrado })
             .ToListAsync(ct);
+        return Ok(movimentos);
+    }
+
+    /// <summary>
+    /// TODAS as movimentações de estoque (entrada e saída), de todos os
+    /// produtos, com filtro por tipo/produto/período — a tela de "controle
+    /// de entrada e saída" geral usa esse endpoint, em vez de precisar abrir
+    /// produto por produto.
+    /// </summary>
+    ///  [HttpGet("movimentos")]
+    public async Task<IActionResult> TodosMovimentos(
+        [FromQuery] TipoMovimentoEstoque? tipo, [FromQuery] Guid? produtoId,
+        [FromQuery] DateTime? inicio, [FromQuery] DateTime? fim, CancellationToken ct)
+    {
+        var query = _db.MovimentosEstoque.AsNoTracking().AsQueryable();
+
+        if (tipo.HasValue) query = query.Where(m => m.Tipo == tipo);
+        if (produtoId.HasValue) query = query.Where(m => m.ProdutoId == produtoId);
+        if (inicio.HasValue) query = query.Where(m => m.CreatedAt >= inicio.Value);
+        if (fim.HasValue) query = query.Where(m => m.CreatedAt < fim.Value.Date.AddDays(1));
+
+        var movimentos = await query
+            .Include(m => m.Produto)
+            .Include(m => m.Usuario)
+            .OrderByDescending(m => m.CreatedAt)
+            .Select(m => new
+            {
+                m.Id,
+                Produto = m.Produto!.Nome,
+                m.Tipo,
+                m.Quantidade,
+                m.EstoqueResultante,
+                Usuario = m.Usuario!.Nome,
+                m.CreatedAt,
+                m.Observacao,
+                m.PrecoCustoRegistrado
+            })
+            .Take(500)
+            .ToListAsync(ct);
+
         return Ok(movimentos);
     }
 
@@ -70,7 +113,7 @@ public class EstoqueController : ControllerBase
     public async Task<IActionResult> Entrada(EntradaEstoqueRequest request, CancellationToken ct)
     {
         await _stock.DevolverEstoqueAsync(request.ProdutoId, request.Quantidade, UsuarioId,
-            TipoMovimentoEstoque.Entrada, null, null, request.Observacao ?? "Entrada manual de estoque", ct);
+            TipoMovimentoEstoque.Entrada, null, null, request.Observacao ?? "Entrada manual de estoque", ct, request.NovoPrecoCusto);
         return NoContent();
     }
 

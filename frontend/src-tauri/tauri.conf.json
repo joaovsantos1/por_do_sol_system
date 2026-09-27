@@ -1,0 +1,40 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "PDV Por do Sol",
+  "version": "0.1.0",
+  "identifier": "br.pordosolquiosque.pdv",
+  "build": {
+    "frontendDist": "../dist/pdv-frontend/browser",
+    "devUrl": "http://localhost:4200",
+    "beforeDevCommand": "ng serve --configuration production --host 0.0.0.0 --port 4200",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "PDV Por do Sol",
+        "width": 800,
+        "height": 600,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' https://por-do-sol-system.onrender.com wss://por-do-sol-system.onrender.com"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "android": {
+      "debugApplicationIdSuffix": ".debug"
+    }
+  }
+}

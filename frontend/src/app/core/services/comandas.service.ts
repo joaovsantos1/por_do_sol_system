@@ -10,6 +10,8 @@ export interface ComandaItem {
   quantidade: number;
   precoUnitario: number;
   subtotal: number;
+  grupoComboId?: string;
+  comboNomeSnapshot?: string;
 }
 
 export interface Comanda {
@@ -49,7 +51,7 @@ export interface ComandaHistorico extends Omit<ComandaResumo, "itens"> {
 }
 
 export interface PagamentoInput {
-  forma: "Pix" | "Dinheiro" | "Cartao";
+  forma: "Pix" | "Dinheiro" | "CartaoCredito" | "CartaoDebito";
   valor: number;
 }
 
@@ -108,6 +110,28 @@ export class ComandasService {
     });
   }
 
+  /// Adiciona um combo/kit (ex.: "Salgado + Refri") — o backend debita o
+  /// estoque de cada produto componente e cria as linhas com preço já
+  /// recalculado proporcionalmente ao preço promocional do combo.
+  adicionarCombo(
+    comandaId: string,
+    comboId: string,
+    quantidade: number,
+  ): Observable<{ grupoComboId: string }> {
+    return this.http.post<{ grupoComboId: string }>(
+      `${this.base}/${comandaId}/combos`,
+      { comboId, quantidade },
+    );
+  }
+
+  /// Remove todas as linhas de um combo de uma vez (devolve o estoque de
+  /// cada componente).
+  removerCombo(comandaId: string, grupoComboId: string): Observable<void> {
+    return this.http.delete<void>(
+      `${this.base}/${comandaId}/combos/${grupoComboId}`,
+    );
+  }
+
   alterarQuantidade(
     comandaId: string,
     itemId: string,
@@ -137,10 +161,11 @@ export class ComandasService {
   fechar(
     comandaId: string,
     pagamentos: PagamentoInput[],
-  ): Observable<{ id: string; total: number }> {
-    return this.http.post<{ id: string; total: number }>(
+    desconto = 0,
+  ): Observable<{ id: string; total: number; desconto: number }> {
+    return this.http.post<{ id: string; total: number; desconto: number }>(
       `${this.base}/${comandaId}/fechar`,
-      { pagamentos },
+      { pagamentos, desconto },
     );
   }
 }

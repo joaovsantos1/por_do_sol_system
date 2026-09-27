@@ -24,4 +24,15 @@ public class MovimentoEstoque : EntidadeBase
     public Guid UsuarioId { get; set; }
     public Usuario? Usuario { get; set; }
     public string? Observacao { get; set; }
+
+    /// <summary>
+    /// Preenchido só em movimentos de ENTRADA quando o operador informa o
+    /// preço de custo pago naquela compra. Como o custo de um mesmo produto
+    /// pode mudar de uma compra pra outra, isso funciona como o histórico
+    /// de custo do produto — dá pra consultar todas as entradas com esse
+    /// campo preenchido, em ordem cronológica, e ver quanto se pagava antes
+    /// vs. quanto se paga hoje. Quando informado, também atualiza
+    /// Produto.PrecoCusto (ver StockService.DevolverEstoqueAsync).
+    /// </summary>
+    public decimal? PrecoCustoRegistrado { get; set; }
 }

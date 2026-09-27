@@ -17,8 +17,13 @@ import { MatDialog, MatDialogModule } from "@angular/material/dialog";
 import { MatSnackBar } from "@angular/material/snack-bar";
 import { Subscription, debounceTime, Subject } from "rxjs";
 
-import { ComandasService, Comanda } from "../../core/services/comandas.service";
+import {
+  ComandasService,
+  Comanda,
+  ComandaItem,
+} from "../../core/services/comandas.service";
 import { ProdutosService, Produto } from "../../core/services/produtos.service";
+import { CombosService, Combo } from "../../core/services/combos.service";
 import { RealtimeService } from "../../core/services/realtime.service";
 import { CloseCommandDialogComponent } from "../commands/close-command-dialog.component";
 import {
@@ -26,6 +31,13 @@ import {
   NewCommandDialogResult,
 } from "./new-command-dialog.component";
 import { ScannerButtonComponent } from "../../shared/scanner-button.component";
+
+interface GrupoComboExibicao {
+  grupoComboId: string;
+  nome: string;
+  itens: ComandaItem[];
+  subtotal: number;
+}
 
 @Component({
   selector: "app-pos",
@@ -80,6 +92,29 @@ import { ScannerButtonComponent } from "../../shared/scanner-button.component";
         <div class="pos-grid">
           <!-- Coluna de produtos -->
           <div class="produtos-col">
+            @if (combos.length > 0) {
+              <h3 class="secao-titulo">Combos</h3>
+              <div class="combos-grid">
+                @for (combo of combos; track combo.id) {
+                  <button class="combo-card" (click)="adicionarCombo(combo)">
+                    <span class="nome">🎁 {{ combo.nome }}</span>
+                    <span class="preco"
+                      >R$ {{ combo.precoVenda | number: "1.2-2" }}</span
+                    >
+                    @if (combo.precoAvulsoReferencia > combo.precoVenda) {
+                      <span class="preco-avulso"
+                        >de R$
+                        {{
+                          combo.precoAvulsoReferencia | number: "1.2-2"
+                        }}</span
+                      >
+                    }
+                  </button>
+                }
+              </div>
+              <h3 class="secao-titulo">Produtos</h3>
+            }
+
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Buscar produto (nome ou código de barras)</mat-label>
               <input
@@ -138,7 +173,31 @@ import { ScannerButtonComponent } from "../../shared/scanner-button.component";
             }
 
             <div class="itens-lista">
-              @for (item of comandaAtual.itens; track item.id) {
+              @for (grupo of gruposCombo; track grupo.grupoComboId) {
+                <div class="combo-item-row">
+                  <div class="combo-item-header">
+                    <span class="combo-item-nome">🎁 {{ grupo.nome }}</span>
+                    <button
+                      mat-icon-button
+                      color="warn"
+                      (click)="removerCombo(grupo)"
+                      title="Remover combo inteiro"
+                    >
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </div>
+                  @for (item of grupo.itens; track item.id) {
+                    <div class="combo-item-linha">
+                      {{ item.quantidade }}x {{ item.produtoNome }}
+                    </div>
+                  }
+                  <div class="combo-item-subtotal">
+                    R$ {{ grupo.subtotal | number: "1.2-2" }}
+                  </div>
+                </div>
+              }
+
+              @for (item of itensAvulsos; track item.id) {
                 <div class="item-row">
                   <span class="item-nome">{{ item.produtoNome }}</span>
                   <div class="item-qtd">
@@ -167,7 +226,9 @@ import { ScannerButtonComponent } from "../../shared/scanner-button.component";
                     <mat-icon>delete</mat-icon>
                   </button>
                 </div>
-              } @empty {
+              }
+
+              @if (gruposCombo.length === 0 && itensAvulsos.length === 0) {
                 <p class="vazio">Nenhum item adicionado ainda.</p>
               }
             </div>
@@ -240,12 +301,56 @@ import { ScannerButtonComponent } from "../../shared/scanner-button.component";
         display: flex;
         flex-direction: column;
         min-height: 0;
+        overflow-y: auto;
       }
+      .secao-titulo {
+        margin: 4px 0;
+        font-size: 0.85rem;
+        color: #777;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .combos-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .combo-card {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+        padding: 10px;
+        border: 2px dashed var(--pdv-accent);
+        border-radius: 8px;
+        background: #fff8f0;
+        cursor: pointer;
+        text-align: left;
+      }
+      .combo-card:hover {
+        background: #fff0e0;
+      }
+      .combo-card .nome {
+        font-weight: 600;
+        font-size: 0.85rem;
+      }
+      .combo-card .preco {
+        color: var(--pdv-accent);
+        font-weight: 700;
+        font-size: 0.95rem;
+      }
+      .combo-card .preco-avulso {
+        font-size: 0.72rem;
+        color: #999;
+        text-decoration: line-through;
+      }
+
       .produtos-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
         gap: 8px;
-        overflow-y: auto;
         align-content: start;
       }
       .produto-card {
@@ -370,6 +475,37 @@ import { ScannerButtonComponent } from "../../shared/scanner-button.component";
         border-top: 2px solid #ddd;
       }
 
+      .combo-item-row {
+        padding: 8px 0;
+        border-bottom: 1px solid #eee;
+        background: #fff8f0;
+        margin: 0 -8px;
+        padding-left: 8px;
+        padding-right: 8px;
+        border-radius: 4px;
+      }
+      .combo-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .combo-item-nome {
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: var(--pdv-accent);
+      }
+      .combo-item-linha {
+        font-size: 0.8rem;
+        color: #666;
+        padding-left: 8px;
+      }
+      .combo-item-subtotal {
+        text-align: right;
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin-top: 4px;
+      }
+
       @media (max-width: 900px) {
         .pos-grid {
           grid-template-columns: 1fr;
@@ -401,6 +537,7 @@ export class PosComponent implements OnInit, OnDestroy {
   termoBusca = "";
   comandaAtual: Comanda | null = null;
   produtos: Produto[] = [];
+  combos: Combo[] = [];
 
   buscaSubject = new Subject<string>();
   private subs = new Subscription();
@@ -408,6 +545,7 @@ export class PosComponent implements OnInit, OnDestroy {
   constructor(
     private comandasService: ComandasService,
     private produtosService: ProdutosService,
+    private combosService: CombosService,
     private realtime: RealtimeService,
     private dialog: MatDialog,
     private snack: MatSnackBar,
@@ -416,6 +554,7 @@ export class PosComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.carregarProdutos();
+    this.combosService.listar().subscribe((c) => (this.combos = c));
 
     const comandaQueryParam = this.route.snapshot.queryParamMap.get("comanda");
     if (comandaQueryParam) this.buscarComanda(comandaQueryParam);
@@ -437,6 +576,34 @@ export class PosComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subs.unsubscribe();
+  }
+
+  /// Agrupa os itens da comanda que pertencem a um combo (mesmo
+  /// grupoComboId) para exibição em bloco, com uma única ação de remover.
+  get gruposCombo(): GrupoComboExibicao[] {
+    if (!this.comandaAtual) return [];
+    const grupos = new Map<string, GrupoComboExibicao>();
+
+    for (const item of this.comandaAtual.itens) {
+      if (!item.grupoComboId) continue;
+      const existente = grupos.get(item.grupoComboId);
+      if (existente) {
+        existente.itens.push(item);
+        existente.subtotal += item.subtotal;
+      } else {
+        grupos.set(item.grupoComboId, {
+          grupoComboId: item.grupoComboId,
+          nome: item.comboNomeSnapshot ?? "Combo",
+          itens: [item],
+          subtotal: item.subtotal,
+        });
+      }
+    }
+    return Array.from(grupos.values());
+  }
+
+  get itensAvulsos(): ComandaItem[] {
+    return this.comandaAtual?.itens.filter((i) => !i.grupoComboId) ?? [];
   }
 
   carregarProdutos(busca?: string): void {
@@ -508,10 +675,32 @@ export class PosComponent implements OnInit, OnDestroy {
       });
   }
 
-  alterarQuantidade(
-    item: Comanda["itens"][number],
-    novaQuantidade: number,
-  ): void {
+  adicionarCombo(combo: Combo): void {
+    if (!this.comandaAtual) return;
+    this.comandasService
+      .adicionarCombo(this.comandaAtual.id, combo.id, 1)
+      .subscribe({
+        next: () => {
+          this.recarregarComandaAtual();
+          this.carregarProdutos(this.termoBusca);
+        },
+        error: () => {}, // erro já exibido pelo interceptor global (ex.: estoque insuficiente de um dos componentes)
+      });
+  }
+
+  removerCombo(grupo: GrupoComboExibicao): void {
+    if (!this.comandaAtual) return;
+    this.comandasService
+      .removerCombo(this.comandaAtual.id, grupo.grupoComboId)
+      .subscribe({
+        next: () => {
+          this.recarregarComandaAtual();
+          this.carregarProdutos(this.termoBusca);
+        },
+      });
+  }
+
+  alterarQuantidade(item: ComandaItem, novaQuantidade: number): void {
     if (!this.comandaAtual) return;
     if (novaQuantidade <= 0) {
       this.removerItem(item);
@@ -528,7 +717,7 @@ export class PosComponent implements OnInit, OnDestroy {
       });
   }
 
-  removerItem(item: Comanda["itens"][number]): void {
+  removerItem(item: ComandaItem): void {
     if (!this.comandaAtual) return;
     this.comandasService.removerItem(this.comandaAtual.id, item.id).subscribe({
       next: () => {
@@ -542,20 +731,28 @@ export class PosComponent implements OnInit, OnDestroy {
     if (!this.comandaAtual) return;
 
     const ref = this.dialog.open(CloseCommandDialogComponent, {
-      width: "420px",
+      width: "440px",
       data: { total: this.comandaAtual.valorTotal },
     });
 
-    ref.afterClosed().subscribe((pagamentos) => {
-      if (!pagamentos || !this.comandaAtual) return;
-      this.comandasService.fechar(this.comandaAtual.id, pagamentos).subscribe({
-        next: () => {
-          this.snack.open("Comanda fechada com sucesso!", "OK", {
-            duration: 3000,
+    ref
+      .afterClosed()
+      .subscribe((resultado?: { pagamentos: any[]; desconto: number }) => {
+        if (!resultado || !this.comandaAtual) return;
+        this.comandasService
+          .fechar(
+            this.comandaAtual.id,
+            resultado.pagamentos,
+            resultado.desconto,
+          )
+          .subscribe({
+            next: () => {
+              this.snack.open("Comanda fechada com sucesso!", "OK", {
+                duration: 3000,
+              });
+              this.comandaAtual = null;
+            },
           });
-          this.comandaAtual = null;
-        },
       });
-    });
   }
 }

@@ -53,11 +53,27 @@ export const routes: Routes = [
           ),
       },
       {
+        path: "combos",
+        canActivate: [roleGuard(["Administrador", "Gerente"])],
+        loadComponent: () =>
+          import("./features/combos/combos.component").then(
+            (m) => m.CombosComponent,
+          ),
+      },
+      {
         path: "estoque",
         canActivate: [roleGuard(["Administrador", "Gerente"])],
         loadComponent: () =>
           import("./features/stock/stock.component").then(
             (m) => m.StockComponent,
+          ),
+      },
+      {
+        path: "movimentacoes-estoque",
+        canActivate: [roleGuard(["Administrador", "Gerente"])],
+        loadComponent: () =>
+          import("./features/stock/stock-movements.component").then(
+            (m) => m.StockMovementsComponent,
           ),
       },
       {
@@ -74,6 +90,14 @@ export const routes: Routes = [
         loadComponent: () =>
           import("./features/users/users.component").then(
             (m) => m.UsersComponent,
+          ),
+      },
+      {
+        path: "configuracoes",
+        canActivate: [roleGuard(["Administrador"])],
+        loadComponent: () =>
+          import("./features/settings/settings.component").then(
+            (m) => m.SettingsComponent,
           ),
       },
     ],

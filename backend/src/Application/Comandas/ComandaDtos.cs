@@ -1,6 +1,7 @@
 namespace Pdv.Application.Comandas;
 
 public record AdicionarItemRequest(Guid ProdutoId, int Quantidade);
+public record AdicionarComboRequest(Guid ComboId, int Quantidade);
 
 public record AlterarQuantidadeRequest(int NovaQuantidade);
 
@@ -15,6 +16,6 @@ public record ComandaResponse(
 
 public record AbrirComandaRequest(string? Observacoes, int? NumeroMesa, string? NomeCliente);
 
-public record FecharComandaRequest(List<PagamentoRequest> Pagamentos);
+public record FecharComandaRequest(List<PagamentoRequest> Pagamentos, decimal Desconto = 0);
 
 public record PagamentoRequest(string Forma, decimal Valor);

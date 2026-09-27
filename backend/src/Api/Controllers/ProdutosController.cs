@@ -50,9 +50,21 @@ public class ProdutosController : ControllerBase
 
         var produtos = await query.OrderBy(p => p.Nome).Select(p => new
         {
-            p.Id, p.Codigo, p.CodigoBarras, p.Nome, p.PrecoVenda, p.PrecoCusto, p.EstoqueAtual,
-            p.EstoqueMinimo, EstoqueBaixo = p.EstoqueAtual <= p.EstoqueMinimo,
-            p.CategoriaId, Categoria = p.Categoria!.Nome, p.Ativo, p.ImagemUrl, p.Unidade, p.Descricao
+            p.Id,
+            p.Codigo,
+            p.CodigoBarras,
+            p.Nome,
+            p.PrecoVenda,
+            p.PrecoCusto,
+            p.EstoqueAtual,
+            p.EstoqueMinimo,
+            EstoqueBaixo = p.EstoqueAtual <= p.EstoqueMinimo,
+            p.CategoriaId,
+            Categoria = p.Categoria!.Nome,
+            p.Ativo,
+            p.ImagemUrl,
+            p.Unidade,
+            p.Descricao
         }).ToListAsync(ct);
 
         return Ok(produtos);
@@ -67,6 +79,22 @@ public class ProdutosController : ControllerBase
             .Select(p => new { p.Id, p.Nome, p.EstoqueAtual, p.EstoqueMinimo })
             .ToListAsync(ct);
         return Ok(produtos);
+    }
+
+    /// <summary>
+    /// Histórico de custo do produto: todas as entradas de estoque em que
+    /// um novo preço de custo foi informado, em ordem cronológica — dá pra
+    /// ver quanto se pagava antes vs. quanto se paga hoje.
+    /// </summary>
+    [HttpGet("{id:guid}/historico-custo")]
+    public async Task<IActionResult> HistoricoCusto(Guid id, CancellationToken ct)
+    {
+        var historico = await _db.MovimentosEstoque.AsNoTracking()
+            .Where(m => m.ProdutoId == id && m.PrecoCustoRegistrado != null)
+            .OrderBy(m => m.CreatedAt)
+            .Select(m => new { m.CreatedAt, PrecoCusto = m.PrecoCustoRegistrado!.Value, m.Quantidade, m.Observacao })
+            .ToListAsync(ct);
+        return Ok(historico);
     }
 
     [HttpPost]

@@ -37,7 +37,11 @@ public class VendasController : ControllerBase
             .OrderByDescending(v => v.DataHora)
             .Select(v => new
             {
-                v.Id, v.DataHora, Usuario = v.Usuario!.Nome, v.Total, v.Cancelada
+                v.Id,
+                v.DataHora,
+                Usuario = v.Usuario!.Nome,
+                v.Total,
+                v.Cancelada
             })
             .ToListAsync(ct);
 
@@ -54,10 +58,15 @@ public class VendasController : ControllerBase
             .Where(v => v.Id == id)
             .Select(v => new
             {
-                v.Id, v.DataHora, Usuario = v.Usuario!.Nome, v.Total, v.Desconto, v.Cancelada,
+                v.Id,
+                v.DataHora,
+                Usuario = v.Usuario!.Nome,
+                v.Total,
+                v.Desconto,
+                v.Cancelada,
                 v.MotivoCancelamento,
                 Itens = v.Itens.Select(i => new { i.ProdutoNomeSnapshot, i.Quantidade, i.PrecoUnitario, i.Subtotal }),
-                Pagamentos = v.Pagamentos.Select(p => new { p.Forma, p.Valor })
+                Pagamentos = v.Pagamentos.Select(p => new { p.Forma, p.Valor, p.ValorLiquido })
             })
             .SingleOrDefaultAsync(ct);
 

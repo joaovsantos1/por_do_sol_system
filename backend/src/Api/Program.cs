@@ -117,9 +117,14 @@ builder.Services.AddCors(options =>
         {
             if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
                 return false;
-            return uri.Scheme == Uri.UriSchemeHttps &&
+            if (uri.Scheme == Uri.UriSchemeHttps &&
                 uri.Host.StartsWith("por-do-") &&
-                uri.Host.EndsWith(".vercel.app");
+                uri.Host.EndsWith(".vercel.app"))
+                return true;
+            if (origin is "https://tauri.localhost" or "http://tauri.localhost" or "tauri://localhost")
+                return true;
+
+            return false;
         })
         // var origensPermitidas = (builder.Configuration["Cors:AllowedOrigins"] ?? "http://localhost:4200")
         // .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

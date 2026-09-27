@@ -84,6 +84,15 @@ public static class DatabaseSeeder
             );
         }
 
+        if (!db.ConfiguracoesTaxas.Any())
+        {
+            db.ConfiguracoesTaxas.Add(new ConfiguracaoTaxas
+            {
+                TaxaCartaoCreditoPercentual = 0m,
+                TaxaCartaoDebitoPercentual = 0m
+            });
+        }
+
         await db.SaveChangesAsync();
     }
 }

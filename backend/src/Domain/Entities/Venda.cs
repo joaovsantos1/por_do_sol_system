@@ -47,6 +47,8 @@ public class Pagamento : EntidadeBase
     public Venda? Venda { get; set; }
     public FormaPagamento Forma { get; set; }
     public decimal Valor { get; set; }
+
+    public decimal? ValorLiquido { get; set; }
     public DateTime DataHora { get; set; } = DateTime.UtcNow;
     public Guid UsuarioId { get; set; }
     public Usuario? Usuario { get; set; }

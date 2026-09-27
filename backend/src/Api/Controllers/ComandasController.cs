@@ -129,7 +129,9 @@ public class ComandasController : ControllerBase
                     ProdutoNome = i.Produto!.Nome,
                     i.Quantidade,
                     i.PrecoUnitario,
-                    i.Subtotal
+                    i.Subtotal,
+                    i.GrupoComboId,
+                    i.ComboNomeSnapshot
                 })
             })
             .Take(300)
@@ -171,7 +173,6 @@ public class ComandasController : ControllerBase
         var comandas = await _db.Comandas
             .Where(c => c.Status == StatusComanda.Aberta)
             .Include(c => c.AbertaPorUsuario)
-            .Include(c => c.Itens.Where(i => !i.Removido))
             .OrderByDescending(c => c.AbertaEm)
             .Select(c => new
             {
@@ -182,7 +183,7 @@ public class ComandasController : ControllerBase
                 c.NomeCliente,
                 c.AbertaEm,
                 AbertaPor = c.AbertaPorUsuario!.Nome,
-                Itens = c.Itens.Count,
+                Itens = c.Itens.Count(i => !i.Removido),
                 c.ValorTotal
             })
             .ToListAsync(ct);
@@ -228,7 +229,9 @@ public class ComandasController : ControllerBase
                     ProdutoNome = i.Produto!.Nome,
                     i.Quantidade,
                     i.PrecoUnitario,
-                    i.Subtotal
+                    i.Subtotal,
+                    i.GrupoComboId,
+                    i.ComboNomeSnapshot
                 })
             })
             .SingleOrDefaultAsync(ct);
@@ -327,6 +330,39 @@ public class ComandasController : ControllerBase
             return BadRequest(new { erro = ex.Message });
         }
     }
+    [HttpPost("{comandaId:guid}/combos")]
+    public async Task<IActionResult> AdicionarCombo(Guid comandaId, AdicionarComboRequest request, CancellationToken ct)
+    {
+        try
+        {
+            var grupoComboId = await _comandas.AdicionarComboAsync(comandaId, request.ComboId, request.Quantidade, UsuarioId, ct);
+            await _hub.Clients.All.SendAsync("ComandaAtualizada", comandaId, ct);
+            return Ok(new { grupoComboId });
+        }
+        catch (EstoqueInsuficienteException ex)
+        {
+            return Conflict(new { erro = ex.Message });
+        }
+        catch (ComandaInvalidaException ex)
+        {
+            return BadRequest(new { erro = ex.Message });
+        }
+    }
+
+    [HttpDelete("{comandaId:guid}/combos/{grupoComboId:guid}")]
+    public async Task<IActionResult> RemoverCombo(Guid comandaId, Guid grupoComboId, CancellationToken ct)
+    {
+        try
+        {
+            await _comandas.RemoverComboAsync(comandaId, grupoComboId, UsuarioId, ct);
+            await _hub.Clients.All.SendAsync("ComandaAtualizada", comandaId, ct);
+            return NoContent();
+        }
+        catch (ComandaInvalidaException ex)
+        {
+            return BadRequest(new { erro = ex.Message });
+        }
+    }
 
     [HttpPost("{comandaId:guid}/cancelar")]
     [Authorize(Roles = "Administrador,Gerente,Caixa")]
@@ -354,11 +390,15 @@ public class ComandasController : ControllerBase
                 .Select(p => (Enum.Parse<FormaPagamento>(p.Forma, true), p.Valor))
                 .ToList();
 
-            var venda = await _fechamento.FecharComandaAsync(comandaId, pagamentos, UsuarioId, ct);
+            var venda = await _fechamento.FecharComandaAsync(comandaId, pagamentos, UsuarioId, ct, request.Desconto);
             await _hub.Clients.All.SendAsync("ComandaAtualizada", comandaId, ct);
-            return Ok(new { venda.Id, venda.Total, venda.DataHora });
+            return Ok(new { venda.Id, venda.Total, venda.Desconto, venda.DataHora });
         }
         catch (PagamentoInsuficienteException ex)
+        {
+            return BadRequest(new { erro = ex.Message });
+        }
+        catch (Pdv.Application.Comandas.DescontoInvalidoException ex)
         {
             return BadRequest(new { erro = ex.Message });
         }

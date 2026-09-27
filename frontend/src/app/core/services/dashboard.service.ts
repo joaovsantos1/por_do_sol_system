@@ -5,6 +5,7 @@ import { environment } from "../../../environments/environment";
 
 export interface ResumoPeriodo {
   totalVendido: number;
+  valorLiquidoTotal: number;
   numeroVendas: number;
   ticketMedio: number;
   comandasAbertas: number;
@@ -27,6 +28,12 @@ export class DashboardService {
     return this.http.get<ResumoPeriodo>(
       `${this.base}/periodo?inicio=${inicio}&fim=${fim}`,
     );
+  }
+
+  exportarExcel(inicio: string, fim: string): Observable<Blob> {
+    return this.http.get(`${this.base}/exportar?inicio=${inicio}&fim=${fim}`, {
+      responseType: "blob",
+    });
   }
 }
 

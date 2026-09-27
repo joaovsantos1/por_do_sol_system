@@ -15,7 +15,7 @@ public interface IStockService
     Task<Pdv.Domain.Entities.MovimentoEstoque> DevolverEstoqueAsync(
         Guid produtoId, int quantidade, Guid usuarioId,
         Pdv.Domain.Enums.TipoMovimentoEstoque tipo, Guid? comandaId, Guid? comandaItemId,
-        string? observacao, CancellationToken ct = default);
+        string? observacao, CancellationToken ct = default, decimal? precoCustoRegistrado = null);
 
     Task AjustarQuantidadeAsync(
         Guid produtoId, int quantidadeAntiga, int quantidadeNova,
@@ -85,7 +85,13 @@ public class StockService : IStockService
     {
         if (quantidade <= 0) throw new ArgumentException("Quantidade deve ser positiva.", nameof(quantidade));
 
-        await using IDbContextTransaction tx = await _db.Database.BeginTransactionAsync(ct);
+        // Se o chamador (ex.: ComandaService) já abriu uma transação, participamos
+        // dela em vez de tentar abrir outra por cima (o que geraria erro no
+        // Npgsql/EF Core — só é permitida uma transação ativa por vez no
+        // mesmo DbContext). Quem controla o commit/rollback nesse caso é o
+        // chamador, não este método.
+        var transacaoJaExiste = _db.Database.CurrentTransaction is not null;
+        var tx = transacaoJaExiste ? null : await _db.Database.BeginTransactionAsync(ct);
         try
         {
             // Lock pessimista de linha: bloqueia até que qualquer outra transação
@@ -117,12 +123,12 @@ public class StockService : IStockService
             _db.MovimentosEstoque.Add(movimento);
 
             await _db.SaveChangesAsync(ct);
-            await tx.CommitAsync(ct);
+            if (tx is not null) await tx.CommitAsync(ct);
             return movimento;
         }
         catch
         {
-            await tx.RollbackAsync(ct);
+            if (tx is not null) await tx.RollbackAsync(ct);
             throw;
         }
     }
@@ -131,15 +137,21 @@ public class StockService : IStockService
     /// Devolve estoque (remoção de item, redução de quantidade, cancelamento
     /// de comanda/venda). Mesmo mecanismo de lock, mas sem risco de ficar
     /// negativo — sempre soma.
+    /// Quando <paramref name="precoCustoRegistrado"/> é informado (uso
+    /// típico: entrada manual de estoque), o preço de custo do produto é
+    /// atualizado dentro da MESMA transação e fica registrado no
+    /// MovimentoEstoque — isso é o que permite consultar depois "quanto eu
+    /// pagava antes vs. quanto pago hoje" olhando o histórico de entradas.
     /// </summary>
     public async Task<MovimentoEstoque> DevolverEstoqueAsync(
         Guid produtoId, int quantidade, Guid usuarioId,
         TipoMovimentoEstoque tipo, Guid? comandaId, Guid? comandaItemId,
-        string? observacao, CancellationToken ct = default)
+        string? observacao, CancellationToken ct = default, decimal? precoCustoRegistrado = null)
     {
         if (quantidade <= 0) throw new ArgumentException("Quantidade deve ser positiva.", nameof(quantidade));
 
-        await using IDbContextTransaction tx = await _db.Database.BeginTransactionAsync(ct);
+        var transacaoJaExiste = _db.Database.CurrentTransaction is not null;
+        var tx = transacaoJaExiste ? null : await _db.Database.BeginTransactionAsync(ct);
         try
         {
             var produto = await _db.Produtos
@@ -152,6 +164,9 @@ public class StockService : IStockService
             produto.EstoqueAtual += quantidade;
             produto.UpdatedAt = DateTime.UtcNow;
 
+            if (precoCustoRegistrado.HasValue && precoCustoRegistrado.Value >= 0)
+                produto.PrecoCusto = precoCustoRegistrado.Value;
+
             var movimento = new MovimentoEstoque
             {
                 ProdutoId = produtoId,
@@ -161,17 +176,18 @@ public class StockService : IStockService
                 ComandaId = comandaId,
                 ComandaItemId = comandaItemId,
                 UsuarioId = usuarioId,
-                Observacao = observacao
+                Observacao = observacao,
+                PrecoCustoRegistrado = precoCustoRegistrado
             };
             _db.MovimentosEstoque.Add(movimento);
 
             await _db.SaveChangesAsync(ct);
-            await tx.CommitAsync(ct);
+            if (tx is not null) await tx.CommitAsync(ct);
             return movimento;
         }
         catch
         {
-            await tx.RollbackAsync(ct);
+            if (tx is not null) await tx.RollbackAsync(ct);
             throw;
         }
     }

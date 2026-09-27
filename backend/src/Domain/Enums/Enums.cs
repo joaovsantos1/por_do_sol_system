@@ -21,7 +21,9 @@ public enum FormaPagamento
 {
     Pix = 1,
     Dinheiro = 2,
-    Cartao = 3
+    Cartao = 3,
+    CartaoCredito = 4,
+    CartaoDebito = 5
 }
 
 public enum PerfilUsuario

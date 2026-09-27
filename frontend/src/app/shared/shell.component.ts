@@ -107,6 +107,16 @@ import { RealtimeService } from "../core/services/realtime.service";
             </a>
             <a
               mat-list-item
+              routerLink="/combos"
+              routerLinkActive="active"
+              matTooltip="Combos / Kits"
+              matTooltipPosition="right"
+            >
+              <mat-icon matListItemIcon>redeem</mat-icon>
+              <span matListItemTitle class="nav-text">Combos</span>
+            </a>
+            <a
+              mat-list-item
               routerLink="/estoque"
               routerLinkActive="active"
               matTooltip="Estoque"
@@ -140,6 +150,16 @@ import { RealtimeService } from "../core/services/realtime.service";
                 >people</mat-icon
               >
               <span matListItemTitle class="nav-text">Usuários</span>
+            </a>
+            <a
+              mat-list-item
+              routerLink="/configuracoes"
+              routerLinkActive="active"
+              matTooltip="Configurações"
+              matTooltipPosition="right"
+            >
+              <mat-icon matListItemIcon>settings</mat-icon>
+              <span matListItemTitle class="nav-text">Configurações</span>
             </a>
           }
         </mat-nav-list>

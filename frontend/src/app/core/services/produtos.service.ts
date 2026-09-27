@@ -21,6 +21,13 @@ export interface Produto {
   imagemUrl?: string;
 }
 
+export interface HistoricoCustoItem {
+  createdAt: string;
+  precoCusto: number;
+  quantidade: number;
+  observacao?: string;
+}
+
 @Injectable({ providedIn: "root" })
 export class ProdutosService {
   private readonly base = `${environment.apiUrl}/produtos`;
@@ -45,6 +52,14 @@ export class ProdutosService {
         estoqueMinimo: number;
       }[]
     >(`${this.base}/estoque-baixo`);
+  }
+
+  /// Histórico de preço de custo (todas as entradas onde um novo custo foi
+  /// informado) — permite ver quanto se pagava antes vs. hoje.
+  historicoCusto(produtoId: string): Observable<HistoricoCustoItem[]> {
+    return this.http.get<HistoricoCustoItem[]>(
+      `${this.base}/${produtoId}/historico-custo`,
+    );
   }
 }
 

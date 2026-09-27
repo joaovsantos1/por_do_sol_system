@@ -200,9 +200,18 @@ public class RelatoriosController : ControllerBase
         var porFormaPagamento = await _db.Pagamentos.AsNoTracking()
             .Where(p => p.DataHora >= inicio && p.DataHora < fimExclusivo)
             .GroupBy(p => p.Forma)
-            .Select(g => new { Forma = g.Key.ToString(), Total = g.Sum(p => p.Valor) })
+            .Select(g => new
+            {
+                Forma = g.Key.ToString(),
+                Total = g.Sum(p => p.Valor),
+                TotalLiquido = g.Sum(p => p.ValorLiquido ?? p.Valor)
+            })
             .ToListAsync(ct);
 
-        return Ok(new { faturamento, ticketMedio, porFormaPagamento });
+        // Esse é o número que deve bater com o extrato da maquininha —
+        // já com as taxas de crédito/débito descontadas.
+        var valorLiquidoTotal = porFormaPagamento.Sum(f => f.TotalLiquido);
+
+        return Ok(new { faturamento, ticketMedio, valorLiquidoTotal, porFormaPagamento });
     }
 }

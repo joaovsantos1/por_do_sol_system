@@ -161,8 +161,14 @@ namespace Infrastructure.Migrations
                     b.Property<Guid>("ComandaId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("ComboNomeSnapshot")
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("GrupoComboId")
+                        .HasColumnType("uuid");
 
                     b.Property<decimal>("PrecoUnitario")
                         .HasColumnType("numeric(12,2)");
@@ -186,9 +192,94 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("ComandaId");
 
+                    b.HasIndex("GrupoComboId");
+
                     b.HasIndex("ProdutoId");
 
                     b.ToTable("ComandaItens");
+                });
+
+            modelBuilder.Entity("Pdv.Domain.Entities.Combo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Descricao")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("PrecoVenda")
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Combos");
+                });
+
+            modelBuilder.Entity("Pdv.Domain.Entities.ComboItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ComboId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ProdutoId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantidade")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ComboId");
+
+                    b.HasIndex("ProdutoId");
+
+                    b.ToTable("ComboItens");
+                });
+
+            modelBuilder.Entity("Pdv.Domain.Entities.ConfiguracaoTaxas", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("TaxaCartaoCreditoPercentual")
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<decimal>("TaxaCartaoDebitoPercentual")
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ConfiguracoesTaxas");
                 });
 
             modelBuilder.Entity("Pdv.Domain.Entities.Meta", b =>
@@ -244,6 +335,9 @@ namespace Infrastructure.Migrations
                     b.Property<string>("Observacao")
                         .HasColumnType("text");
 
+                    b.Property<decimal?>("PrecoCustoRegistrado")
+                        .HasColumnType("numeric(12,2)");
+
                     b.Property<Guid>("ProdutoId")
                         .HasColumnType("uuid");
 
@@ -293,6 +387,9 @@ namespace Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<decimal>("Valor")
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<decimal?>("ValorLiquido")
                         .HasColumnType("numeric(12,2)");
 
                     b.Property<Guid?>("VendaId")
@@ -551,6 +648,25 @@ namespace Infrastructure.Migrations
                     b.Navigation("Produto");
                 });
 
+            modelBuilder.Entity("Pdv.Domain.Entities.ComboItem", b =>
+                {
+                    b.HasOne("Pdv.Domain.Entities.Combo", "Combo")
+                        .WithMany("Itens")
+                        .HasForeignKey("ComboId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pdv.Domain.Entities.Produto", "Produto")
+                        .WithMany()
+                        .HasForeignKey("ProdutoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Combo");
+
+                    b.Navigation("Produto");
+                });
+
             modelBuilder.Entity("Pdv.Domain.Entities.MovimentoEstoque", b =>
                 {
                     b.HasOne("Pdv.Domain.Entities.Produto", "Produto")
@@ -654,6 +770,11 @@ namespace Infrastructure.Migrations
                     b.Navigation("Itens");
 
                     b.Navigation("Pagamentos");
+                });
+
+            modelBuilder.Entity("Pdv.Domain.Entities.Combo", b =>
+                {
+                    b.Navigation("Itens");
                 });
 
             modelBuilder.Entity("Pdv.Domain.Entities.Venda", b =>

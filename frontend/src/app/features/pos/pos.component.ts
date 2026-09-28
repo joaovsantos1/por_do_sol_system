@@ -199,32 +199,34 @@ interface GrupoComboExibicao {
 
               @for (item of itensAvulsos; track item.id) {
                 <div class="item-row">
-                  <span class="item-nome">{{ item.produtoNome }}</span>
-                  <div class="item-qtd">
+                  <div class="item-nome">{{ item.produtoNome }}</div>
+                  <div class="item-controles">
+                    <div class="item-qtd">
+                      <button
+                        mat-icon-button
+                        (click)="alterarQuantidade(item, item.quantidade - 1)"
+                      >
+                        <mat-icon>remove</mat-icon>
+                      </button>
+                      <span>{{ item.quantidade }}</span>
+                      <button
+                        mat-icon-button
+                        (click)="alterarQuantidade(item, item.quantidade + 1)"
+                      >
+                        <mat-icon>add</mat-icon>
+                      </button>
+                    </div>
+                    <span class="item-subtotal"
+                      >R$ {{ item.subtotal | number: "1.2-2" }}</span
+                    >
                     <button
                       mat-icon-button
-                      (click)="alterarQuantidade(item, item.quantidade - 1)"
+                      color="warn"
+                      (click)="removerItem(item)"
                     >
-                      <mat-icon>remove</mat-icon>
-                    </button>
-                    <span>{{ item.quantidade }}</span>
-                    <button
-                      mat-icon-button
-                      (click)="alterarQuantidade(item, item.quantidade + 1)"
-                    >
-                      <mat-icon>add</mat-icon>
+                      <mat-icon>delete</mat-icon>
                     </button>
                   </div>
-                  <span class="item-subtotal"
-                    >R$ {{ item.subtotal | number: "1.2-2" }}</span
-                  >
-                  <button
-                    mat-icon-button
-                    color="warn"
-                    (click)="removerItem(item)"
-                  >
-                    <mat-icon>delete</mat-icon>
-                  </button>
                 </div>
               }
 
@@ -437,18 +439,22 @@ interface GrupoComboExibicao {
       }
       .item-row {
         display: flex;
-        align-items: center;
-        gap: 4px;
+        flex-direction: column;
+        gap: 2px;
         padding: 6px 0;
         border-bottom: 1px solid #eee;
       }
       .item-nome {
-        flex: 1;
-        min-width: 0;
         font-size: 0.9rem;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        font-weight: 500;
+        white-space: normal;
+        word-break: break-word;
+        line-height: 1.25;
+      }
+      .item-controles {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
       }
       .item-qtd {
         display: flex;

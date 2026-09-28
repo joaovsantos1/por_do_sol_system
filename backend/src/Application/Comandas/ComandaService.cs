@@ -104,27 +104,39 @@ public class ComandaService
             if (!produto.Ativo)
                 throw new ComandaInvalidaException("Produto inativo.");
 
-            // Baixa de estoque segura contra concorrência (lock pessimista dentro
-            // do StockService). Se não houver quantidade suficiente, lança
-            // EstoqueInsuficienteException e nada abaixo é executado.
-            var itemId = Guid.NewGuid();
+            var itemExistente = await _db.ComandaItens.SingleOrDefaultAsync(
+                i => i.ComandaId == comandaId && i.ProdutoId == produtoId && !i.Removido && i.GrupoComboId == null, ct);
+
+            var itemId = itemExistente?.Id ?? Guid.NewGuid();
+
             await _stock.BaixarEstoqueAsync(
                 produtoId, quantidade, usuarioId, TipoMovimentoEstoque.SaidaVenda,
                 comandaId, itemId, $"Item adicionado na comanda {comanda.CodigoIdentificador}", ct);
 
-            var item = new ComandaItem
+            ComandaItem item;
+            if (itemExistente is not null)
             {
-                Id = itemId,
-                ComandaId = comandaId,
-                ProdutoId = produtoId,
-                Quantidade = quantidade,
-                PrecoUnitario = produto.PrecoVenda,
-                Subtotal = produto.PrecoVenda * quantidade
-            };
-            _db.ComandaItens.Add(item);
+                itemExistente.Quantidade += quantidade;
+                itemExistente.Subtotal = itemExistente.PrecoUnitario * itemExistente.Quantidade;
+                item = itemExistente;
+            }
+            else
+            {
+
+                item = new ComandaItem
+                {
+                    Id = itemId,
+                    ComandaId = comandaId,
+                    ProdutoId = produtoId,
+                    Quantidade = quantidade,
+                    PrecoUnitario = produto.PrecoVenda,
+                    Subtotal = produto.PrecoVenda * quantidade
+                };
+                _db.ComandaItens.Add(item);
+            }
             await _db.SaveChangesAsync(ct);
 
-            comanda.ValorTotal += await RecalcularTotalAsync(comandaId, ct);
+            comanda.ValorTotal = await RecalcularTotalAsync(comandaId, ct);
             comanda.UpdatedAt = DateTime.UtcNow;
 
             await _db.SaveChangesAsync(ct);

@@ -17,6 +17,7 @@ public class Venda : EntidadeBase
     public Usuario? Usuario { get; set; }
     public DateTime DataHora { get; set; } = DateTime.UtcNow;
     public decimal Desconto { get; set; }
+    public decimal TaxaServico { get; set; }
     public decimal Total { get; set; }
     public bool Cancelada { get; set; }
     public DateTime? CanceladaEm { get; set; }

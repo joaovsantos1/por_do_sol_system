@@ -392,7 +392,22 @@ public class ComandasController : ControllerBase
 
             var venda = await _fechamento.FecharComandaAsync(comandaId, pagamentos, UsuarioId, ct, request.Desconto);
             await _hub.Clients.All.SendAsync("ComandaAtualizada", comandaId, ct);
-            return Ok(new { venda.Id, venda.Total, venda.Desconto, venda.DataHora });
+            return Ok(new
+            {
+                venda.Id,
+                venda.Total,
+                venda.Desconto,
+                venda.TaxaServico,
+                venda.DataHora,
+                Itens = venda.Itens.Select(i => new
+                {
+                    i.ProdutoNomeSnapshot,
+                    i.Quantidade,
+                    i.PrecoUnitario,
+                    i.Subtotal
+                }),
+                Pagamentos = venda.Pagamentos.Select(p => new { Forma = p.Forma.ToString(), p.Valor })
+            });
         }
         catch (PagamentoInsuficienteException ex)
         {

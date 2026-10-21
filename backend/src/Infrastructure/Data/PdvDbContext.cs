@@ -23,6 +23,8 @@ public class PdvDbContext : DbContext
     public DbSet<ConfiguracaoTaxas> ConfiguracoesTaxas => Set<ConfiguracaoTaxas>();
     public DbSet<Combo> Combos => Set<Combo>();
     public DbSet<ComboItem> ComboItens => Set<ComboItem>();
+    public DbSet<CategoriaDespesa> CategoriasDespesa => Set<CategoriaDespesa>();
+    public DbSet<Despesa> Despesas => Set<Despesa>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -103,6 +105,7 @@ public class PdvDbContext : DbContext
             e.Property(v => v.Desconto).HasColumnType("numeric(12,2)");
             e.HasOne(v => v.Comanda).WithMany()
                 .HasForeignKey(v => v.ComandaId).OnDelete(DeleteBehavior.Restrict);
+            e.Property(v => v.TaxaServico).HasColumnType("numeric(12,2)");
         });
 
         modelBuilder.Entity<VendaItem>(e =>
@@ -130,6 +133,20 @@ public class PdvDbContext : DbContext
         {
             e.Property(c => c.TaxaCartaoCreditoPercentual).HasColumnType("numeric(5,2)");
             e.Property(c => c.TaxaCartaoDebitoPercentual).HasColumnType("numeric(5,2)");
+        });
+
+        modelBuilder.Entity<CategoriaDespesa>(e =>
+        {
+            e.HasIndex(c => c.Nome).IsUnique();
+        });
+
+        modelBuilder.Entity<Despesa>(e =>
+        {
+            e.Property(d => d.Valor).HasColumnType("numeric(12,2)");
+            e.HasOne(d => d.CategoriaDespesa).WithMany()
+                .HasForeignKey(d => d.CategoriaDespesaId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(d => d.Usuario).WithMany()
+                .HasForeignKey(d => d.UsuarioId).OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

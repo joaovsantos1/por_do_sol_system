@@ -251,6 +251,8 @@ export class CloseCommandDialogComponent implements OnInit {
   taxas: TaxasCartao = {
     taxaCartaoCreditoPercentual: 0,
     taxaCartaoDebitoPercentual: 0,
+    taxaServicoAtiva: false,
+    taxaServicoPercentual: 10,
   };
 
   constructor(

@@ -11,7 +11,7 @@ import { MatIconModule } from "@angular/material/icon";
 import { MatDialog, MatDialogModule } from "@angular/material/dialog";
 import { MatSlideToggleModule } from "@angular/material/slide-toggle";
 import { environment } from "../../../environments/environment";
-
+import { AdjustStockDialogComponent } from "./adjust-stock-dialog.component";
 import { ProdutosService, Produto } from "../../core/services/produtos.service";
 import { ProductFormDialogComponent } from "./product-form-dialog.component";
 import { AddStockDialogComponent } from "./add-stock-dialog.component";
@@ -81,6 +81,13 @@ import { CostHistoryDialogComponent } from "./cost-history-dialog.component";
             title="Adicionar estoque (comprou mais)"
           >
             <mat-icon>add_box</mat-icon>
+          </button>
+          <button
+            mat-icon-button
+            (click)="ajustarEstoque(p)"
+            title="Balanço (acertar quantidade)"
+          >
+            <mat-icon>fact_check</mat-icon>
           </button>
           <button
             mat-icon-button
@@ -179,6 +186,20 @@ export class ProductsComponent implements OnInit {
     });
     ref.afterClosed().subscribe((confirmado) => {
       if (confirmado) this.buscar();
+    });
+  }
+
+  ajustarEstoque(produto: Produto): void {
+    const ref = this.dialog.open(AdjustStockDialogComponent, {
+      width: "380px",
+      data: {
+        produtoId: produto.id,
+        produtoNome: produto.nome,
+        estoqueAtual: produto.estoqueAtual,
+      },
+    });
+    ref.afterClosed().subscribe((ok) => {
+      if (ok) this.buscar();
     });
   }
 

@@ -6,7 +6,7 @@ using Pdv.Infrastructure.Data;
 
 namespace Pdv.Api.Controllers;
 
-public record TaxasRequest(decimal TaxaCartaoCreditoPercentual, decimal TaxaCartaoDebitoPercentual);
+public record TaxasRequest(decimal TaxaCartaoCreditoPercentual, decimal TaxaCartaoDebitoPercentual, bool TaxaServicoAtiva, decimal TaxaServicoPercentual);
 
 /// <summary>
 /// Configurações gerais do sistema. Por ora só as taxas da maquininha de
@@ -31,7 +31,9 @@ public class ConfiguracoesController : ControllerBase
         return Ok(new
         {
             taxaCartaoCreditoPercentual = config?.TaxaCartaoCreditoPercentual ?? 0m,
-            taxaCartaoDebitoPercentual = config?.TaxaCartaoDebitoPercentual ?? 0m
+            taxaCartaoDebitoPercentual = config?.TaxaCartaoDebitoPercentual ?? 0m,
+            taxaServicoAtiva = config?.TaxaServicoAtiva ?? false,
+            taxaServicoPercentual = config?.TaxaServicoPercentual ?? 10m
         });
     }
 
@@ -40,7 +42,8 @@ public class ConfiguracoesController : ControllerBase
     public async Task<IActionResult> AtualizarTaxas(TaxasRequest request, CancellationToken ct)
     {
         if (request.TaxaCartaoCreditoPercentual < 0 || request.TaxaCartaoCreditoPercentual > 100 ||
-            request.TaxaCartaoDebitoPercentual < 0 || request.TaxaCartaoDebitoPercentual > 100)
+            request.TaxaCartaoDebitoPercentual < 0 || request.TaxaCartaoDebitoPercentual > 100 ||
+            request.TaxaServicoPercentual < 0 || request.TaxaServicoPercentual > 100)
             return BadRequest(new { erro = "A taxa deve estar entre 0 e 100%." });
 
         var config = await _db.ConfiguracoesTaxas.FirstOrDefaultAsync(ct);
@@ -52,6 +55,8 @@ public class ConfiguracoesController : ControllerBase
 
         config.TaxaCartaoCreditoPercentual = request.TaxaCartaoCreditoPercentual;
         config.TaxaCartaoDebitoPercentual = request.TaxaCartaoDebitoPercentual;
+        config.TaxaServicoAtiva = request.TaxaServicoAtiva;
+        config.TaxaServicoPercentual = request.TaxaServicoPercentual;
         config.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync(ct);

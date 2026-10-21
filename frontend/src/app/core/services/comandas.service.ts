@@ -2,6 +2,7 @@ import { Injectable } from "@angular/core";
 import { HttpClient } from "@angular/common/http";
 import { Observable } from "rxjs";
 import { environment } from "../../../environments/environment";
+import { DadosComprovante } from "./impressao.service";
 
 export interface ComandaItem {
   id: string;
@@ -156,6 +157,13 @@ export class ComandasService {
     return this.http.post<void>(`${this.base}/${comandaId}/estornar`, {
       motivo,
     });
+  }
+
+  /// Dados do comprovante de uma comanda já fechada (pra 2ª via).
+  comprovante(comandaId: string): Observable<DadosComprovante> {
+    return this.http.get<DadosComprovante>(
+      `${environment.apiUrl}/sales/por-comanda/${comandaId}`,
+    );
   }
 
   fechar(

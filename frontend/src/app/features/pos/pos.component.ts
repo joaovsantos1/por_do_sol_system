@@ -16,6 +16,8 @@ import { MatCardModule } from "@angular/material/card";
 import { MatDialog, MatDialogModule } from "@angular/material/dialog";
 import { MatSnackBar } from "@angular/material/snack-bar";
 import { Subscription, debounceTime, Subject } from "rxjs";
+import { ReceiptPreviewDialogComponent } from "../../shared/receipt-preview-dialog.component";
+import { ConfiguracoesService } from "../../core/services/configuracoes.service";
 
 import {
   ComandasService,
@@ -239,6 +241,16 @@ interface GrupoComboExibicao {
               <span>TOTAL</span>
               <span>R$ {{ comandaAtual.valorTotal | number: "1.2-2" }}</span>
             </div>
+
+            <button
+              mat-stroked-button
+              class="full-width"
+              style="margin-bottom: 8px;"
+              [disabled]="comandaAtual.itens.length === 0"
+              (click)="imprimirConferencia()"
+            >
+              <mat-icon>print</mat-icon> IMPRIMIR CONFERÊNCIA
+            </button>
 
             <button
               mat-flat-button
@@ -556,6 +568,7 @@ export class PosComponent implements OnInit, OnDestroy {
     private dialog: MatDialog,
     private snack: MatSnackBar,
     private route: ActivatedRoute,
+    private configuracoes: ConfiguracoesService,
   ) {}
 
   ngOnInit(): void {
@@ -735,6 +748,7 @@ export class PosComponent implements OnInit, OnDestroy {
 
   fecharComanda(): void {
     if (!this.comandaAtual) return;
+    const comandaAntesDoFechamento = this.comandaAtual;
 
     const ref = this.dialog.open(CloseCommandDialogComponent, {
       width: "440px",
@@ -752,13 +766,72 @@ export class PosComponent implements OnInit, OnDestroy {
             resultado.desconto,
           )
           .subscribe({
-            next: () => {
+            next: (venda: any) => {
               this.snack.open("Comanda fechada com sucesso!", "OK", {
                 duration: 3000,
               });
+              this.dialog.open(ReceiptPreviewDialogComponent, {
+                width: "400px",
+                data: {
+                  numeroComanda: comandaAntesDoFechamento.numero,
+                  numeroMesa: comandaAntesDoFechamento.numeroMesa,
+                  nomeCliente: comandaAntesDoFechamento.nomeCliente,
+                  itens: (venda.itens ?? []).map((i: any) => ({
+                    nome: i.produtoNomeSnapshot,
+                    quantidade: i.quantidade,
+                    precoUnitario: i.precoUnitario,
+                    subtotal: i.subtotal,
+                  })),
+                  subtotal: comandaAntesDoFechamento.valorTotal,
+                  desconto: venda.desconto ?? 0,
+                  taxaServico: venda.taxaServico ?? 0,
+                  total: venda.total,
+                  pagamentos: venda.pagamentos ?? [],
+                  dataHora: venda.dataHora,
+                },
+              });
+
               this.comandaAtual = null;
             },
           });
       });
+  }
+  /// Imprime os itens e o total SEM fechar a comanda — o garçom/caixa leva
+  /// até a mesa, o cliente escolhe a forma de pagamento, e só depois a
+  /// comanda é fechada. O desconto não aparece aqui porque só é definido
+  /// no fechamento.
+  imprimirConferencia(): void {
+    const comanda = this.comandaAtual;
+    if (!comanda) return;
+
+    this.configuracoes.obterTaxas().subscribe((taxas) => {
+      const taxaServico = taxas.taxaServicoAtiva
+        ? Math.round(comanda.valorTotal * taxas.taxaServicoPercentual) / 100
+        : 0;
+
+      this.dialog.open(ReceiptPreviewDialogComponent, {
+        width: "400px",
+        data: {
+          numeroComanda: comanda.numero,
+          numeroMesa: comanda.numeroMesa,
+          nomeCliente: comanda.nomeCliente,
+          itens: comanda.itens.map((i) => ({
+            nome: i.comboNomeSnapshot
+              ? `${i.produtoNome} (combo: ${i.comboNomeSnapshot})`
+              : i.produtoNome,
+            quantidade: i.quantidade,
+            precoUnitario: i.precoUnitario,
+            subtotal: i.subtotal,
+          })),
+          subtotal: comanda.valorTotal,
+          desconto: 0,
+          taxaServico,
+          total: comanda.valorTotal + taxaServico,
+          pagamentos: [],
+          dataHora: new Date(),
+          conferencia: true,
+        },
+      });
+    });
   }
 }

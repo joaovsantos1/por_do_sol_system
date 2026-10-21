@@ -12,4 +12,7 @@ public class ConfiguracaoTaxas : EntidadeBase
 {
     public decimal TaxaCartaoCreditoPercentual { get; set; }
     public decimal TaxaCartaoDebitoPercentual { get; set; }
+
+    public bool TaxaServicoAtiva { get; set; }
+    public decimal TaxaServicoPercentual { get; set; } = 10m;
 }

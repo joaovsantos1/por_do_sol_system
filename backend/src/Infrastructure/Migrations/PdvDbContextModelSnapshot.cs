@@ -88,6 +88,33 @@ namespace Infrastructure.Migrations
                     b.ToTable("Categorias");
                 });
 
+            modelBuilder.Entity("Pdv.Domain.Entities.CategoriaDespesa", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Nome")
+                        .IsUnique();
+
+                    b.ToTable("CategoriasDespesa");
+                });
+
             modelBuilder.Entity("Pdv.Domain.Entities.Comanda", b =>
                 {
                     b.Property<Guid>("Id")
@@ -274,12 +301,58 @@ namespace Infrastructure.Migrations
                     b.Property<decimal>("TaxaCartaoDebitoPercentual")
                         .HasColumnType("numeric(5,2)");
 
+                    b.Property<bool>("TaxaServicoAtiva")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("TaxaServicoPercentual")
+                        .HasColumnType("numeric");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
                     b.ToTable("ConfiguracoesTaxas");
+                });
+
+            modelBuilder.Entity("Pdv.Domain.Entities.Despesa", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CategoriaDespesaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("Data")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Descricao")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Observacao")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Valor")
+                        .HasColumnType("numeric(12,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoriaDespesaId");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.ToTable("Despesas");
                 });
 
             modelBuilder.Entity("Pdv.Domain.Entities.Meta", b =>
@@ -542,6 +615,9 @@ namespace Infrastructure.Migrations
                     b.Property<string>("MotivoCancelamento")
                         .HasColumnType("text");
 
+                    b.Property<decimal>("TaxaServico")
+                        .HasColumnType("numeric(12,2)");
+
                     b.Property<decimal>("Total")
                         .HasColumnType("numeric(12,2)");
 
@@ -665,6 +741,25 @@ namespace Infrastructure.Migrations
                     b.Navigation("Combo");
 
                     b.Navigation("Produto");
+                });
+
+            modelBuilder.Entity("Pdv.Domain.Entities.Despesa", b =>
+                {
+                    b.HasOne("Pdv.Domain.Entities.CategoriaDespesa", "CategoriaDespesa")
+                        .WithMany()
+                        .HasForeignKey("CategoriaDespesaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pdv.Domain.Entities.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CategoriaDespesa");
+
+                    b.Navigation("Usuario");
                 });
 
             modelBuilder.Entity("Pdv.Domain.Entities.MovimentoEstoque", b =>

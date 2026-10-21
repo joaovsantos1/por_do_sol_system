@@ -85,6 +85,14 @@ export const routes: Routes = [
           ),
       },
       {
+        path: "financeiro",
+        canActivate: [roleGuard(["Administrador", "Gerente"])],
+        loadComponent: () =>
+          import("./features/financeiro/financeiro.component").then(
+            (m) => m.FinanceiroComponent,
+          ),
+      },
+      {
         path: "usuarios",
         canActivate: [roleGuard(["Administrador"])],
         loadComponent: () =>

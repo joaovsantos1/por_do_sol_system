@@ -64,11 +64,21 @@ public class FechamentoService
             if (desconto > comanda.ValorTotal)
                 throw new DescontoInvalidoException("Desconto não pode ser maior que total da comanda.");
 
-            var totalAPagar = comanda.ValorTotal - desconto;
+            var subtotalComDesconto = comanda.ValorTotal - desconto;
+
+            var configTaxas = await _db.ConfiguracoesTaxas.AsNoTracking().FirstOrDefaultAsync(ct);
+            var taxaServicoValor = configTaxas?.TaxaServicoAtiva == true
+                ? Math.Round(subtotalComDesconto * (configTaxas.TaxaServicoPercentual / 100m), 2)
+                : 0m;
+
+            var totalAPagar = subtotalComDesconto + taxaServicoValor;
 
             var totalPago = pagamentos.Sum(p => p.Valor);
             if (totalPago < totalAPagar)
                 throw new PagamentoInsuficienteException(totalAPagar, totalPago);
+
+            var taxaCredito = configTaxas?.TaxaCartaoCreditoPercentual ?? 0m;
+            var taxaDebito = configTaxas?.TaxaCartaoDebitoPercentual ?? 0m;
 
             var venda = new Venda
             {
@@ -76,6 +86,7 @@ public class FechamentoService
                 UsuarioId = usuarioId,
                 DataHora = DateTime.UtcNow,
                 Desconto = desconto,
+                TaxaServico = taxaServicoValor,
                 Total = totalAPagar
             };
 
@@ -92,10 +103,6 @@ public class FechamentoService
                     Subtotal = item.Subtotal
                 });
             }
-
-            var configTaxas = await _db.ConfiguracoesTaxas.AsNoTracking().FirstOrDefaultAsync(ct);
-            var taxaCredito = configTaxas?.TaxaCartaoCreditoPercentual ?? 0m;
-            var taxaDebito = configTaxas?.TaxaCartaoDebitoPercentual ?? 0m;
 
             foreach (var (forma, valor) in pagamentos)
             {

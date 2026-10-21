@@ -6,6 +6,8 @@ import { environment } from "../../../environments/environment";
 export interface TaxasCartao {
   taxaCartaoCreditoPercentual: number;
   taxaCartaoDebitoPercentual: number;
+  taxaServicoAtiva: boolean;
+  taxaServicoPercentual: number;
 }
 
 @Injectable({ providedIn: "root" })

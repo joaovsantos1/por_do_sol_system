@@ -1,11 +1,17 @@
 import { Component, OnInit } from "@angular/core";
 import { CommonModule } from "@angular/common";
-import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
+import {
+  FormBuilder,
+  FormsModule,
+  ReactiveFormsModule,
+  Validators,
+} from "@angular/forms";
 import { MatCardModule } from "@angular/material/card";
 import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatInputModule } from "@angular/material/input";
 import { MatButtonModule } from "@angular/material/button";
 import { MatSnackBar } from "@angular/material/snack-bar";
+import { MatSlideToggleModule } from "@angular/material/slide-toggle";
 
 import { ConfiguracoesService } from "../../core/services/configuracoes.service";
 
@@ -19,10 +25,12 @@ import { ConfiguracoesService } from "../../core/services/configuracoes.service"
   imports: [
     CommonModule,
     ReactiveFormsModule,
+    FormsModule,
     MatCardModule,
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
+    MatSlideToggleModule,
   ],
   template: `
     <h1>Configurações</h1>
@@ -87,6 +95,49 @@ import { ConfiguracoesService } from "../../core/services/configuracoes.service"
         </button>
       </form>
     </mat-card>
+    <mat-card class="card">
+      <h2>Taxa de serviço (garçom)</h2>
+      <p class="explicacao">
+        Deixe desligado enquanto não houver garçom. Quando ligar, esse
+        percentual é somado automaticamente ao total de toda comanda fechada a
+        partir daí (sobre o valor já com desconto aplicado).
+      </p>
+
+      <mat-slide-toggle
+        [(ngModel)]="taxaServicoAtiva"
+        [ngModelOptions]="{ standalone: true }"
+      >
+        Cobrar taxa de serviço
+      </mat-slide-toggle>
+
+      @if (taxaServicoAtiva) {
+        <mat-form-field
+          appearance="outline"
+          class="full-width"
+          style="margin-top: 12px;"
+        >
+          <mat-label>Percentual da taxa de serviço (%)</mat-label>
+          <input
+            matInput
+            type="number"
+            min="0"
+            max="100"
+            step="0.01"
+            [(ngModel)]="taxaServicoPercentual"
+            [ngModelOptions]="{ standalone: true }"
+          />
+        </mat-form-field>
+      }
+
+      <button
+        mat-flat-button
+        color="primary"
+        (click)="salvarTaxaServico()"
+        style="margin-top: 8px;"
+      >
+        Salvar
+      </button>
+    </mat-card>
   `,
   styles: [
     `
@@ -116,6 +167,9 @@ export class SettingsComponent implements OnInit {
   form: ReturnType<FormBuilder["group"]>;
   salvando = false;
 
+  taxaServicoAtiva = false;
+  taxaServicoPercentual = 10;
+
   constructor(
     private fb: FormBuilder,
     private configuracoesService: ConfiguracoesService,
@@ -134,9 +188,11 @@ export class SettingsComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.configuracoesService
-      .obterTaxas()
-      .subscribe((taxas) => this.form.patchValue(taxas));
+    this.configuracoesService.obterTaxas().subscribe((taxas) => {
+      this.form.patchValue(taxas);
+      this.taxaServicoAtiva = taxas.taxaServicoAtiva;
+      this.taxaServicoPercentual = taxas.taxaServicoPercentual;
+    });
   }
 
   salvar(): void {
@@ -144,7 +200,11 @@ export class SettingsComponent implements OnInit {
     this.salvando = true;
 
     this.configuracoesService
-      .atualizarTaxas(this.form.getRawValue() as any)
+      .atualizarTaxas({
+        ...(this.form.getRawValue() as any),
+        taxaServicoAtiva: this.taxaServicoAtiva,
+        taxaServicoPercentual: this.taxaServicoPercentual,
+      })
       .subscribe({
         next: () => {
           this.salvando = false;
@@ -156,5 +216,8 @@ export class SettingsComponent implements OnInit {
           this.salvando = false;
         },
       });
+  }
+  salvarTaxaServico(): void {
+    this.salvar();
   }
 }

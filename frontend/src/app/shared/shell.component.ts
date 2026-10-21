@@ -95,6 +95,16 @@ import { RealtimeService } from "../core/services/realtime.service";
             </a>
             <a
               mat-list-item
+              routerLink="/financeiro"
+              routerLinkActive="active"
+              matTooltip="Financeiro"
+              matTooltipPosition="right"
+            >
+              <mat-icon matListItemIcon>account_balance_wallet</mat-icon>
+              <span matListItemTitle class="nav-text">Financeiro</span>
+            </a>
+            <a
+              mat-list-item
               routerLink="/produtos"
               routerLinkActive="active"
               matTooltip="Produtos"

@@ -9,6 +9,7 @@ import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatInputModule } from "@angular/material/input";
 import { MatChipsModule } from "@angular/material/chips";
 import { MatDialog, MatDialogModule } from "@angular/material/dialog";
+import { ReceiptPreviewDialogComponent } from "../../shared/receipt-preview-dialog.component";
 
 import {
   ComandasService,
@@ -152,6 +153,13 @@ type StatusFiltro = "Todas" | "Aberta" | "Fechada" | "Cancelada";
             >
               <mat-icon>undo</mat-icon>
             </button>
+            <button
+              mat-icon-button
+              (click)="segundaVia(c)"
+              title="Imprimir 2ª via do comprovante"
+            >
+              <mat-icon>print</mat-icon>
+            </button>
           }
         </td>
       </ng-container>
@@ -266,6 +274,15 @@ export class CommandsHistoryComponent implements OnInit {
         alert(
           "Não foi possível estornar essa comanda — verifique se ela já não está estornada.",
         ),
+    });
+  }
+
+  segundaVia(comanda: ComandaHistorico): void {
+    this.comandasService.comprovante(comanda.id).subscribe((dados) => {
+      this.dialog.open(ReceiptPreviewDialogComponent, {
+        width: "400px",
+        data: { ...dados, segundaVia: true },
+      });
     });
   }
 }

@@ -214,4 +214,56 @@ public class RelatoriosController : ControllerBase
 
         return Ok(new { faturamento, ticketMedio, valorLiquidoTotal, porFormaPagamento });
     }
+
+    /// <summary>
+    /// Relatório completo pra tela de Financeiro: receita (líquida, já
+    /// descontando taxa de cartão) e despesa por dia, despesas agrupadas
+    /// por categoria (pro gráfico de pizza), e os totais do período.
+    /// </summary>
+    [HttpGet("financeiro-completo")]
+    public async Task<IActionResult> FinanceiroCompleto([FromQuery] DateTime inicio, [FromQuery] DateTime fim, CancellationToken ct)
+    {
+        var inicioUtc = DateRangeHelper.InicioUtc(inicio);
+        var fimExclusivoUtc = DateRangeHelper.FimExclusivoUtc(fim);
+
+        var pagamentos = await _db.Pagamentos.AsNoTracking()
+            .Where(p => p.DataHora >= inicioUtc && p.DataHora < fimExclusivoUtc && p.VendaId != null && !p.Venda!.Cancelada)
+            .Select(p => new { p.DataHora, Valor = p.ValorLiquido ?? p.Valor })
+            .ToListAsync(ct);
+
+        var despesas = await _db.Despesas.AsNoTracking()
+            .Where(d => d.Data >= inicioUtc && d.Data < fimExclusivoUtc)
+            .Include(d => d.CategoriaDespesa)
+            .Select(d => new { d.Data, d.Valor, Categoria = d.CategoriaDespesa!.Nome })
+            .ToListAsync(ct);
+
+        var receitaPorDia = pagamentos.GroupBy(p => DateRangeHelper.DataLocal(p.DataHora).Date)
+            .ToDictionary(g => g.Key, g => g.Sum(p => p.Valor));
+        var despesaPorDia = despesas.GroupBy(d => DateRangeHelper.DataLocal(d.Data).Date)
+            .ToDictionary(g => g.Key, g => g.Sum(d => d.Valor));
+
+        var todosOsDias = receitaPorDia.Keys.Union(despesaPorDia.Keys).OrderBy(d => d);
+        var porDia = todosOsDias.Select(dia => new
+        {
+            Dia = dia.ToString("dd/MM"),
+            Receita = receitaPorDia.GetValueOrDefault(dia, 0m),
+            Despesa = despesaPorDia.GetValueOrDefault(dia, 0m),
+            Lucro = receitaPorDia.GetValueOrDefault(dia, 0m) - despesaPorDia.GetValueOrDefault(dia, 0m)
+        }).ToList();
+
+        var despesasPorCategoria = despesas.GroupBy(d => d.Categoria)
+            .Select(g => new { Categoria = g.Key, Total = g.Sum(d => d.Valor) })
+            .OrderByDescending(g => g.Total)
+            .ToList();
+
+        var totalReceita = pagamentos.Sum(p => p.Valor);
+        var totalDespesa = despesas.Sum(d => d.Valor);
+
+        return Ok(new
+        {
+            porDia,
+            despesasPorCategoria,
+            totais = new { totalReceita, totalDespesa, lucroTotal = totalReceita - totalDespesa }
+        });
+    }
 }
